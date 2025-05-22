@@ -28,17 +28,24 @@ st.pyplot(fig_corr)
 
 # Wykresy rozkładu
 st.subheader("📊 Feature Distributions")
-num_cols = len(cols)
-n_rows = (num_cols + 2) // 3  # Oblicz liczbę wierszy, aby zmieścić wszystkie wykresy (3 na wiersz)
-fig, axs = plt.subplots(n_rows, 3, figsize=(18, n_rows * 4)) # Dostosuj figsize do liczby wierszy
-axs = axs.flatten() # Spłaszcz tablicę osi dla łatwiejszej iteracji
+num_features_to_plot = len(cols) # Should be 11 based on the 'cols' list
+
+# Hardcode the subplot grid dimensions for 11 plots:
+# 3 rows of 3 plots, and 1 row of 2 plots (total 4 rows in the grid)
+subplot_grid_rows = 4
+subplot_grid_cols = 3
+
+fig, axs = plt.subplots(subplot_grid_rows, subplot_grid_cols, figsize=(18, subplot_grid_rows * 4))
+axs = axs.flatten() # Flatten the array of axes for easy iteration
 
 for i, col_name in enumerate(cols):
     sns.histplot(df[col_name], kde=True, ax=axs[i], color="skyblue")
-    axs[i].set_title(col_name)
+    axs[i].set_title(col_name) # Plot title is at the top of each subplot
 
-# Ukryj nieużywane osie, jeśli liczba wykresów nie jest wielokrotnością 3
-for i in range(num_cols, n_rows * 3):
+# Hide any unused subplots in the grid
+# Total subplots in grid = subplot_grid_rows * subplot_grid_cols
+# We have num_features_to_plot actual plots
+for i in range(num_features_to_plot, subplot_grid_rows * subplot_grid_cols):
     fig.delaxes(axs[i])
 
 plt.tight_layout()
