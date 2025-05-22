@@ -6,10 +6,12 @@ import streamlit as st
 
 # --- CZĘŚĆ OBLICZENIOWA ---
 df = pd.read_parquet("raw_data.parquet")
+df['duration_s'] = df['duration_ms'] / 1000
+df = df.drop(columns=['duration_ms'])
 
 # Kolumny numeryczne do eksploracji
 cols = [
-    'popularity', 'duration_ms', 'danceability', 'energy', 'loudness',
+    'popularity', 'duration_s', 'danceability', 'energy', 'loudness',
     'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'
 ]
 stats = df[cols].describe()
@@ -30,22 +32,14 @@ st.pyplot(fig_corr)
 st.subheader("📊 Feature Distributions")
 num_features_to_plot = len(cols) # Should be 11 based on the 'cols' list
 
-# Hardcode the subplot grid dimensions for 11 plots:
-# 3 rows of 3 plots, and 1 row of 2 plots (total 4 rows in the grid)
-subplot_grid_rows = 4
-subplot_grid_cols = 3
-
-fig, axs = plt.subplots(subplot_grid_rows, subplot_grid_cols, figsize=(18, subplot_grid_rows * 4))
-axs = axs.flatten() # Flatten the array of axes for easy iteration
+fig, axs = plt.subplots(4, 3, figsize=(18, 4 * 4))
+axs = axs.flatten() 
 
 for i, col_name in enumerate(cols):
     sns.histplot(df[col_name], kde=True, ax=axs[i], color="skyblue")
-    axs[i].set_title(col_name) # Plot title is at the top of each subplot
+    axs[i].set_title(col_name) 
 
-# Hide any unused subplots in the grid
-# Total subplots in grid = subplot_grid_rows * subplot_grid_cols
-# We have num_features_to_plot actual plots
-for i in range(num_features_to_plot, subplot_grid_rows * subplot_grid_cols):
+for i in range(num_features_to_plot, 4 * 3):
     fig.delaxes(axs[i])
 
 plt.tight_layout()
