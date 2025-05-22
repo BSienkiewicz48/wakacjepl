@@ -99,18 +99,16 @@ st.markdown("""
 # Wykresy rozkładu po normalizacji
 st.subheader("📊 Normalized Feature Distributions (used for similarity search)")
 
-features_to_plot = features_for_similarity
-num_plot = len(features_to_plot)
-rows = (num_plot + 2) // 3
+num_features_to_plot_norm = len(features_for_similarity)
+fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 12))
+axs_norm = axs_norm.flatten()
 
-for i in range(rows):
-    fig, axs = plt.subplots(1, 3, figsize=(18, 4))
-    for j in range(3):
-        idx = i * 3 + j
-        if idx < num_plot:
-            col = features_to_plot[idx]
-            sns.histplot(df_norm[col], kde=True, ax=axs[j], color="lightgreen")
-            axs[j].set_title(col)
-        else:
-            fig.delaxes(axs[j])
-    st.pyplot(fig)
+for i, col_name in enumerate(features_for_similarity):
+    sns.histplot(df_norm[col_name], kde=True, ax=axs_norm[i], color="lightgreen")
+    axs_norm[i].set_title(col_name)
+
+for i in range(num_features_to_plot_norm, 3 * 3):
+    fig_norm.delaxes(axs_norm[i])
+
+plt.tight_layout()
+st.pyplot(fig_norm)
