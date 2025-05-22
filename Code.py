@@ -17,7 +17,6 @@ corr_matrix = df[cols].corr()
 
 
 # --- CZĘŚĆ WIZUALNA STREAMLIT ---
-st.set_page_config(page_title="Spotify Track Explorer", layout="wide")
 st.title("🎵 Spotify Track Explorer")
 st.markdown("Explore the distribution and relationships between audio features.")
 
