@@ -35,12 +35,9 @@ features_for_similarity = [
 
 # Normalizacja
 df_norm = df.copy()
-# loudness – z-score
-scaler_loud = StandardScaler()
-df_norm['loudness'] = scaler_loud.fit_transform(df[['loudness']])
 
 # reszta – min-max
-minmax_cols = [col for col in features_for_similarity if col != 'loudness']
+minmax_cols = features_for_similarity
 scaler = MinMaxScaler()
 df_norm[minmax_cols] = scaler.fit_transform(df[minmax_cols])
 
