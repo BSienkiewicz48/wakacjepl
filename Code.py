@@ -2,7 +2,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-df = pd.read_parquet(r'dataset.parquet')
+df = pd.read_parquet(r'raw_data.parquet')
 
 cols = [
     'popularity', 'duration_ms', 'danceability', 'energy', 'loudness',
