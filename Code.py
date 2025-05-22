@@ -26,19 +26,24 @@ fig_corr, ax_corr = plt.subplots(figsize=(10, 8))
 sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax_corr)
 st.pyplot(fig_corr)
 
-# Wykresy rozkładu (3 na jednym płótnie)
-st.subheader("📊 Feature Distributions (with potential outliers)")
+# Wykresy rozkładu
+st.subheader("📊 Feature Distributions")
 num_cols = len(cols)
-rows = (num_cols + 2) // 3
+n_rows = (num_cols + 2) // 3  # Oblicz liczbę wierszy, aby zmieścić wszystkie wykresy (3 na wiersz)
+fig, axs = plt.subplots(n_rows, 3, figsize=(18, n_rows * 4)) # Dostosuj figsize do liczby wierszy
+axs = axs.flatten() # Spłaszcz tablicę osi dla łatwiejszej iteracji
 
-for i in range(rows):
-    fig, axs = plt.subplots(1, 3, figsize=(18, 4))
-    for j in range(3):
-        idx = i * 3 + j
-        if idx < num_cols:
-            sns.histplot(df[cols[idx]], kde=True, ax=axs[j], color="skyblue")
-            axs[j].set_title(cols[idx])
-    st.pyplot(fig)
+for i, col_name in enumerate(cols):
+    sns.histplot(df[col_name], kde=True, ax=axs[i], color="skyblue")
+    axs[i].set_title(col_name)
+
+# Ukryj nieużywane osie, jeśli liczba wykresów nie jest wielokrotnością 3
+for i in range(num_cols, n_rows * 3):
+    fig.delaxes(axs[i])
+
+plt.tight_layout()
+st.pyplot(fig)
+
 
 # Statystyki opisowe
 st.subheader("📈 Descriptive Statistics")
