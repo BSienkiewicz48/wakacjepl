@@ -64,14 +64,14 @@ st.pyplot(fig_corr)
 st.subheader("📊 Feature Distributions")
 num_features_to_plot = len(cols)
 
-fig, axs = plt.subplots(4, 3, figsize=(18, 4 * 4))
+fig, axs = plt.subplots(4, 3, figsize=(18, 16))
 axs = axs.flatten()
 
 for i, col_name in enumerate(cols):
     sns.histplot(df[col_name], kde=True, ax=axs[i], color="skyblue")
     axs[i].set_title(col_name)
 
-for i in range(num_features_to_plot, 4 * 3):
+for i in range(num_features_to_plot, 12):
     fig.delaxes(axs[i])
 
 plt.tight_layout()
@@ -100,14 +100,14 @@ st.markdown("""
 st.subheader("📊 Normalized Feature Distributions (used for similarity search)")
 
 num_features_to_plot_norm = len(features_for_similarity)
-fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 12))
+fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 16))
 axs_norm = axs_norm.flatten()
 
 for i, col_name in enumerate(features_for_similarity):
     sns.histplot(df_norm[col_name], kde=True, ax=axs_norm[i], color="lightgreen")
     axs_norm[i].set_title(col_name)
 
-for i in range(num_features_to_plot_norm, 3 * 3):
+for i in range(num_features_to_plot_norm, 9):
     fig_norm.delaxes(axs_norm[i])
 
 plt.tight_layout()
