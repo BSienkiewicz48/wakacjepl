@@ -35,7 +35,7 @@ features_for_similarity = [
 
 # Normalizacja
 df_norm = df.copy()
-# loudness – standaryzacja
+# loudness – z-score
 scaler_loud = StandardScaler()
 df_norm['loudness'] = scaler_loud.fit_transform(df[['loudness']])
 
@@ -99,3 +99,21 @@ st.markdown("""
     - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
 """)
 
+# Wykresy rozkładu po normalizacji
+st.subheader("📊 Normalized Feature Distributions (used for similarity search)")
+
+features_to_plot = features_for_similarity
+num_plot = len(features_to_plot)
+rows = (num_plot + 2) // 3
+
+for i in range(rows):
+    fig, axs = plt.subplots(1, 3, figsize=(18, 4))
+    for j in range(3):
+        idx = i * 3 + j
+        if idx < num_plot:
+            col = features_to_plot[idx]
+            sns.histplot(df_norm[col], kde=True, ax=axs[j], color="lightgreen")
+            axs[j].set_title(col)
+        else:
+            fig.delaxes(axs[j])
+    st.pyplot(fig)
