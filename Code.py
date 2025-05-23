@@ -52,26 +52,21 @@ cols = [
 stats = df[cols].describe()
 corr_matrix = df[cols].corr()
 
-def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
-    # Usuń utwory o popularności 0
-    mask_popular = df_raw['popularity'] > 0
-    df_raw = df_raw[mask_popular].reset_index(drop=True)
-    df_norm = df_norm[mask_popular].reset_index(drop=True)
+# Dodaj do danych kolumnę łączoną: tytuł – artysta
+df['title_artist'] = df['track_name'] + " – " + df['artists']
 
-    # Jeśli jest kilka utworów o tym samym tytule, wybierz ten z największą popularnością
-    candidates = df_raw[df_raw['track_name'] == selected_title]
-    if len(candidates) > 1:
-        query_index = candidates['popularity'].idxmax()
-    else:
-        query_index = candidates.index[0]
+# Filtrowanie utworów o popularności > 0
+df = df[df['popularity'] > 0].reset_index(drop=True)
+df_norm = df_norm.loc[df.index].reset_index(drop=True)
 
-    query_vector = df_norm.loc[query_index, features].values.reshape(1, -1)
-
-    model = NearestNeighbors(n_neighbors=len(df_norm), metric='euclidean')
+# Funkcja wyszukiwania podobnych utworów
+def find_similar_tracks(row_index, df_raw, df_norm, features, k=5):
+    query_vector = df_norm.loc[row_index, features].values.reshape(1, -1)
+    model = NearestNeighbors(n_neighbors=k+10, metric='euclidean')
     model.fit(df_norm[features])
     distances, indices = model.kneighbors(query_vector)
 
-    # Pomijamy wyniki z distance == 0 (te same lub prawie identyczne utwory)
+    # Pomijamy siebie + duplikaty tytułów
     mask = distances[0] > 0
     filtered_indices = indices[0][mask]
     filtered_distances = distances[0][mask]
@@ -79,13 +74,9 @@ def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
     results = df_raw.loc[filtered_indices, ['track_name', 'artists', 'popularity']].copy()
     results['distance'] = filtered_distances
 
-    # Usuwanie duplikatów: jeśli są te same tytuły i ten sam distance, zostaw z większą popularnością
     results = results.sort_values(['track_name', 'distance', 'popularity'], ascending=[True, True, False])
     results = results.drop_duplicates(subset=['track_name', 'distance'], keep='first')
-
-    # Zwróć tylko k najlepszych
-    results = results.head(k)
-    return results[['track_name', 'artists', 'distance']]
+    return results.head(k)[['track_name', 'artists', 'distance']]
 
 
 # --- CZĘŚĆ WIZUALNA STREAMLIT ---
