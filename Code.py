@@ -67,7 +67,7 @@ def find_similar_tracks(row_index, df_raw, df_norm, features, k=5):
     return results.head(k)[['track_name', 'artists', 'distance']]
 
 
-# --- GŁÓWNA APLIKACJA STREAMLIT ---
+# --- STRONA WIZUALNA - STREAMLIT ---
 df, df_norm, features_for_similarity, stats, corr_matrix, cols = load_and_prepare_data()
 
 st.title("🎵 Spotify Track Explorer")
@@ -108,6 +108,19 @@ for i in range(len(features_for_similarity), 9):
     fig_norm.delaxes(axs_norm[i])
 plt.tight_layout()
 st.pyplot(fig_norm)
+
+st.markdown("### 🧮 Notes on Normalized Features and Outlier Handling")
+st.markdown("""
+- All features used for similarity search are **scaled to the [0, 1] range** using **Min-Max normalization**.
+- This ensures that each feature contributes equally to the distance calculation.
+- **Outliers in `instrumentalness` and `speechiness`** are handled by:
+  - Clipping values above the 95th percentile to a fixed cap.
+  - This prevents rare extreme values from skewing similarity scores.
+- The final feature set includes engineered metrics like:
+  - `mood_score = valence * energy`
+  - `vocals_strength = 1 - instrumentalness - speechiness`
+- This preprocessing step improves the **accuracy and interpretability** of recommendations.
+""")
 
 # Interfejs wyszukiwania podobnych utworów
 st.subheader("🎯 Find Similar Tracks")
