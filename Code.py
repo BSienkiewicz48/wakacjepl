@@ -70,6 +70,7 @@ axs = axs.flatten()
 for i, col_name in enumerate(cols):
     sns.histplot(df[col_name], ax=axs[i], color="skyblue")
     axs[i].set_title(col_name)
+    axs[i].set_xlabel("")  # usuń podpis osi x
 
 for i in range(num_features_to_plot, 12):
     fig.delaxes(axs[i])
