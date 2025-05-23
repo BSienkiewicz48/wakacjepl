@@ -53,10 +53,15 @@ stats = df[cols].describe()
 corr_matrix = df[cols].corr()
 
 def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
-    # Wybieramy rząd odpowiadający wybranemu utworowi
-    query_index = df_raw[df_raw['track_name'] == selected_title].index[0]
+    # Jeśli jest kilka utworów o tym samym tytule, wybierz ten z największą popularnością
+    candidates = df_raw[df_raw['track_name'] == selected_title]
+    if len(candidates) > 1:
+        query_index = candidates['popularity'].idxmax()
+    else:
+        query_index = candidates.index[0]
+
     query_vector = df_norm.loc[query_index, features].values.reshape(1, -1)
-    
+
     model = NearestNeighbors(n_neighbors=len(df_norm), metric='euclidean')
     model.fit(df_norm[features])
     distances, indices = model.kneighbors(query_vector)
@@ -65,7 +70,7 @@ def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
     mask = distances[0] > 0
     filtered_indices = indices[0][mask][:k]
     filtered_distances = distances[0][mask][:k]
-    
+
     results = df_raw.loc[filtered_indices, ['track_name', 'artists']].copy()
     results['distance'] = filtered_distances
     return results
