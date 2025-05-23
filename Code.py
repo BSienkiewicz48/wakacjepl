@@ -99,25 +99,34 @@ sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax_corr)
 st.pyplot(fig_corr)
 
 # Wykresy rozkładu
+@st.cache_data
+def plot_feature_distributions(df, cols):
+    num_features_to_plot = len(cols)
+    fig, axs = plt.subplots(4, 3, figsize=(18, 16))
+    axs = axs.flatten()
+
+    for i, col_name in enumerate(cols):
+        sns.histplot(df[col_name], ax=axs[i], color="skyblue")
+        axs[i].set_title(col_name)
+        axs[i].set_xlabel("") 
+
+    for i in range(num_features_to_plot, 12):
+        fig.delaxes(axs[i])
+
+    plt.tight_layout()
+    return fig
+
 st.subheader("📊 Feature Distributions")
-num_features_to_plot = len(cols)
-
-fig, axs = plt.subplots(4, 3, figsize=(18, 16))
-axs = axs.flatten()
-
-for i, col_name in enumerate(cols):
-    sns.histplot(df[col_name], ax=axs[i], color="skyblue")
-    axs[i].set_title(col_name)
-    axs[i].set_xlabel("") 
-
-for i in range(num_features_to_plot, 12):
-    fig.delaxes(axs[i])
-
-plt.tight_layout()
+fig = plot_feature_distributions(df, cols)
 st.pyplot(fig)
 
 # Statystyki opisowe
+@st.cache_data
+def get_stats(df, cols):
+    return df[cols].describe()
+
 st.subheader("📈 Descriptive Statistics")
+stats = get_stats(df, cols)
 st.dataframe(stats.T.round(2))
 
 # Podsumowanie decyzji
@@ -135,22 +144,26 @@ st.markdown("""
     - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
 """)
 
-# Wykresy rozkładu po normalizacji
+# Wykresy rozkładu po normalizacji (z cache)
+@st.cache_data
+def plot_normalized_feature_distributions(df_norm, features):
+    num_features_to_plot_norm = len(features)
+    fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 16))
+    axs_norm = axs_norm.flatten()
+
+    for i, col_name in enumerate(features):
+        sns.histplot(df_norm[col_name], ax=axs_norm[i], color="lightgreen")
+        axs_norm[i].set_title(col_name)
+        axs_norm[i].set_xlabel("")
+
+    for i in range(num_features_to_plot_norm, 9):
+        fig_norm.delaxes(axs_norm[i])
+
+    plt.tight_layout()
+    return fig_norm
+
 st.subheader("📊 Normalized Feature Distributions (used for similarity search)")
-
-num_features_to_plot_norm = len(features_for_similarity)
-fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 16))
-axs_norm = axs_norm.flatten()
-
-for i, col_name in enumerate(features_for_similarity):
-    sns.histplot(df_norm[col_name], ax=axs_norm[i], color="lightgreen")
-    axs_norm[i].set_title(col_name)
-    axs_norm[i].set_xlabel("")  # Usunięcie podpisów pod osią x
-
-for i in range(num_features_to_plot_norm, 9):
-    fig_norm.delaxes(axs_norm[i])
-
-plt.tight_layout()
+fig_norm = plot_normalized_feature_distributions(df_norm, features_for_similarity)
 st.pyplot(fig_norm)
 
 st.subheader("🎯 Find Similar Tracks")
