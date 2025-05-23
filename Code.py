@@ -25,8 +25,7 @@ perc95_instr = df['instrumentalness'].quantile(0.95)
 df['instrumentalness'] = np.where(
     df['instrumentalness'] > perc95_instr, 1, df['instrumentalness']
 )
-
-# Podobnie przycinamy speechiness
+# speechiness
 perc95_speech = df['speechiness'].quantile(0.95)
 df['speechiness'] = np.where(
     df['speechiness'] > perc95_speech, perc95_speech, df['speechiness']
@@ -38,9 +37,8 @@ features_for_similarity = [
     'acousticness', 'tempo', 'mood_score', 'vocals_strength'
 ]
 
-# Normalizacja
+# Normalizacja # min-max
 df_norm = df.copy()
-# min-max
 minmax_cols = features_for_similarity
 scaler = MinMaxScaler()
 df_norm[minmax_cols] = scaler.fit_transform(df[minmax_cols])
@@ -52,10 +50,7 @@ cols = [
 stats = df[cols].describe()
 corr_matrix = df[cols].corr()
 
-# Dodaj do danych kolumnę łączoną: tytuł – artysta
 df['title_artist'] = df['track_name'] + " – " + df['artists']
-
-# Filtrowanie utworów o popularności > 0
 df = df[df['popularity'] > 0].reset_index(drop=True)
 df_norm = df_norm.loc[df.index].reset_index(drop=True)
 
@@ -167,4 +162,18 @@ if st.button("🔍 Find Similar"):
     st.write(f"Top 5 tracks similar to **{selected_combo}**:")
     st.dataframe(results_df[['track_name', 'artists', 'distance']].reset_index(drop=True), hide_index=True)
 
+st.markdown("### 🔎 How Similar Tracks Are Selected")
+st.markdown("""
+- We analyze **8 normalized audio features** that capture musical style and mood:
+  - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
+- A selected track is represented as a **feature vector** in this multi-dimensional space.
+- We use **K-Nearest Neighbors (KNN)** with **Euclidean distance** to find the closest tracks.
+- For each comparison:
+  - The **Euclidean distance** is calculated:
+    \n\\( \\text{distance} = \\sqrt{\\sum (a_i - b_i)^2} \\)
+  - **Lower distance = higher similarity**.
+- Tracks with **distance = 0** (identical or nearly identical) are excluded.
+- If multiple results share the same `track_name` and distance, the one with **higher popularity** is kept.
+- Final result: **Top 5 most similar tracks**, sorted by distance (smallest first).
+""")
 
