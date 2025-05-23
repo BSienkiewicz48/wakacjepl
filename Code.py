@@ -10,8 +10,8 @@ from sklearn.neighbors import NearestNeighbors
 @st.cache_data
 def load_data():
     return pd.read_parquet("raw_data.parquet")
-
 df = load_data()
+
 df['duration_s'] = df['duration_ms'] / 1000
 df = df.drop(columns=['duration_ms'])
 
@@ -169,11 +169,12 @@ st.markdown("""
 - A selected track is represented as a **feature vector** in this multi-dimensional space.
 - We use **K-Nearest Neighbors (KNN)** with **Euclidean distance** to find the closest tracks.
 - For each comparison:
-  - The **Euclidean distance** is calculated:
-    \n\\( \\text{distance} = \\sqrt{\\sum (a_i - b_i)^2} \\)
+  - The **Euclidean distance** is calculated as:  
+    $\\text{distance} = \\sqrt{(a_1 - b_1)^2 + (a_2 - b_2)^2 + \\dots + (a_8 - b_8)^2}$
   - **Lower distance = higher similarity**.
 - Tracks with **distance = 0** (identical or nearly identical) are excluded.
 - If multiple results share the same `track_name` and distance, the one with **higher popularity** is kept.
 - Final result: **Top 5 most similar tracks**, sorted by distance (smallest first).
 """)
+
 
