@@ -65,18 +65,16 @@ st.subheader("📊 Feature Distributions")
 num_features_to_plot = len(cols)
 
 fig, axs = plt.subplots(4, 3, figsize=(18, 16))
-fig.suptitle("Feature Distributions", fontsize=20)
 axs = axs.flatten()
 
 for i, col_name in enumerate(cols):
     sns.histplot(df[col_name], ax=axs[i], color="skyblue")
-    # Usuwamy podpisy pod wykresami
-    axs[i].set_title("")
+    axs[i].set_title(col_name)
 
 for i in range(num_features_to_plot, 12):
     fig.delaxes(axs[i])
 
-plt.tight_layout(rect=[0, 0, 1, 0.97])  # zostaw miejsce na tytul
+plt.tight_layout()
 st.pyplot(fig)
 
 # Statystyki opisowe
