@@ -4,6 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import streamlit as st
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.neighbors import NearestNeighbors
 
 # --- CZĘŚĆ OBLICZENIOWA ---
 df = pd.read_parquet("raw_data.parquet")
@@ -35,19 +36,34 @@ features_for_similarity = [
 
 # Normalizacja
 df_norm = df.copy()
-
-# reszta – min-max
+# min-max
 minmax_cols = features_for_similarity
 scaler = MinMaxScaler()
 df_norm[minmax_cols] = scaler.fit_transform(df[minmax_cols])
 
-# --- Dla eksploracji ---
 cols = [
     'popularity', 'duration_s', 'danceability', 'energy', 'loudness',
     'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'
 ]
 stats = df[cols].describe()
 corr_matrix = df[cols].corr()
+
+def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
+    # Wybieramy rząd odpowiadający wybranemu utworowi
+    query_index = df_raw[df_raw['track_name'] == selected_title].index[0]
+    query_vector = df_norm.loc[query_index, features].values.reshape(1, -1)
+    
+    model = NearestNeighbors(n_neighbors=k+1, metric='euclidean')  # +1, bo pierwszy wynik to on sam
+    model.fit(df_norm[features])
+    distances, indices = model.kneighbors(query_vector)
+
+    # Pomijamy pierwszy wynik (ten sam utwór), zwracamy kolejne
+    similar_indices = indices[0][1:]
+    similar_distances = distances[0][1:]
+    
+    results = df_raw.loc[similar_indices, ['track_name', 'artists']].copy()
+    results['distance'] = similar_distances
+    return results
 
 
 # --- CZĘŚĆ WIZUALNA STREAMLIT ---
@@ -114,3 +130,16 @@ for i in range(num_features_to_plot_norm, 9):
 
 plt.tight_layout()
 st.pyplot(fig_norm)
+
+st.subheader("🎯 Find Similar Tracks")
+selected_track = st.selectbox(
+    "Choose a track:",
+    options=df['track_name'].unique(),
+    index=0,
+    placeholder="Start typing..."
+)
+
+if st.button("🔍 Find Similar"):
+    results_df = find_similar_tracks(selected_track, df, df_norm, features_for_similarity, k=5)
+    st.write(f"Top 5 tracks similar to **{selected_track}**:")
+    st.dataframe(results_df.reset_index(drop=True))
