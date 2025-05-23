@@ -68,8 +68,8 @@ fig, axs = plt.subplots(4, 3, figsize=(18, 16))
 axs = axs.flatten()
 
 for i, col_name in enumerate(cols):
-    sns.histplot(df[col_name], kde=True, ax=axs[i], color="skyblue")
-    axs[i].set_title(col_name)
+    sns.histplot(df[col_name], ax=axs[i], color="skyblue")
+    
 
 for i in range(num_features_to_plot, 12):
     fig.delaxes(axs[i])
@@ -104,8 +104,8 @@ fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 16))
 axs_norm = axs_norm.flatten()
 
 for i, col_name in enumerate(features_for_similarity):
-    sns.histplot(df_norm[col_name], kde=True, ax=axs_norm[i], color="lightgreen")
-    axs_norm[i].set_title(col_name)
+    sns.histplot(df_norm[col_name], ax=axs_norm[i], color="lightgreen")
+   
 
 for i in range(num_features_to_plot_norm, 9):
     fig_norm.delaxes(axs_norm[i])
