@@ -68,12 +68,19 @@ def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
 
     # Pomijamy wyniki z distance == 0 (te same lub prawie identyczne utwory)
     mask = distances[0] > 0
-    filtered_indices = indices[0][mask][:k]
-    filtered_distances = distances[0][mask][:k]
+    filtered_indices = indices[0][mask]
+    filtered_distances = distances[0][mask]
 
-    results = df_raw.loc[filtered_indices, ['track_name', 'artists']].copy()
+    results = df_raw.loc[filtered_indices, ['track_name', 'artists', 'popularity']].copy()
     results['distance'] = filtered_distances
-    return results
+
+    # Usuwanie duplikatów: jeśli są te same tytuły i ten sam distance, zostaw z większą popularnością
+    results = results.sort_values(['track_name', 'distance', 'popularity'], ascending=[True, True, False])
+    results = results.drop_duplicates(subset=['track_name', 'distance'], keep='first')
+
+    # Zwróć tylko k najlepszych
+    results = results.head(k)
+    return results[['track_name', 'artists', 'distance']]
 
 
 # --- CZĘŚĆ WIZUALNA STREAMLIT ---
