@@ -158,14 +158,11 @@ fig_norm = plot_normalized_feature_distributions(df_norm, features_for_similarit
 st.pyplot(fig_norm)
 
 st.subheader("🎯 Find Similar Tracks")
-selected_track = st.selectbox(
-    "Choose a track:",
-    options=df['track_name'].unique(),
-    index=0,
-    placeholder="Start typing..."
-)
+
+selected_combo = st.selectbox("Choose a track:", df['title_artist'].unique())
+selected_index = df[df['title_artist'] == selected_combo].index[0]
 
 if st.button("🔍 Find Similar"):
-    results_df = find_similar_tracks(selected_track, df, df_norm, features_for_similarity, k=5)
-    st.write(f"Top 5 tracks similar to **{selected_track}**:")
+    results_df = find_similar_tracks(selected_index, df, df_norm, features_for_similarity, k=5)
+    st.write(f"Top 5 tracks similar to **{selected_combo}**:")
     st.dataframe(results_df.reset_index(drop=True))
