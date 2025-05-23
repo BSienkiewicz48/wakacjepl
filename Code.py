@@ -70,7 +70,7 @@ axs = axs.flatten()
 for i, col_name in enumerate(cols):
     sns.histplot(df[col_name], ax=axs[i], color="skyblue")
     axs[i].set_title(col_name)
-    axs[i].set_xlabel("")  # usuń podpis osi x
+    axs[i].set_xlabel("") 
 
 for i in range(num_features_to_plot, 12):
     fig.delaxes(axs[i])
@@ -107,6 +107,7 @@ axs_norm = axs_norm.flatten()
 for i, col_name in enumerate(features_for_similarity):
     sns.histplot(df_norm[col_name], ax=axs_norm[i], color="lightgreen")
     axs_norm[i].set_title(col_name)
+    axs[i].set_xlabel("")
 
 for i in range(num_features_to_plot_norm, 9):
     fig_norm.delaxes(axs_norm[i])
