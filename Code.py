@@ -53,6 +53,11 @@ stats = df[cols].describe()
 corr_matrix = df[cols].corr()
 
 def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
+    # Usuń utwory o popularności 0
+    mask_popular = df_raw['popularity'] > 0
+    df_raw = df_raw[mask_popular].reset_index(drop=True)
+    df_norm = df_norm[mask_popular].reset_index(drop=True)
+
     # Jeśli jest kilka utworów o tym samym tytule, wybierz ten z największą popularnością
     candidates = df_raw[df_raw['track_name'] == selected_title]
     if len(candidates) > 1:
