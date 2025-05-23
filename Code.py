@@ -165,6 +165,6 @@ selected_index = df[df['title_artist'] == selected_combo].index[0]
 if st.button("🔍 Find Similar"):
     results_df = find_similar_tracks(selected_index, df, df_norm, features_for_similarity, k=5)
     st.write(f"Top 5 tracks similar to **{selected_combo}**:")
-    st.dataframe(results_df[['track_name', 'artists']].reset_index(drop=True))
+    st.dataframe(results_df[['track_name', 'artists', 'distance']].reset_index(drop=True), hide_index=True)
 
 
