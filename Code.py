@@ -7,7 +7,11 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.neighbors import NearestNeighbors
 
 # --- CZĘŚĆ OBLICZENIOWA ---
-df = pd.read_parquet("raw_data.parquet")
+@st.cache_data
+def load_data():
+    return pd.read_parquet("raw_data.parquet")
+
+df = load_data()
 df['duration_s'] = df['duration_ms'] / 1000
 df = df.drop(columns=['duration_ms'])
 
@@ -53,16 +57,17 @@ def find_similar_tracks(selected_title, df_raw, df_norm, features, k=5):
     query_index = df_raw[df_raw['track_name'] == selected_title].index[0]
     query_vector = df_norm.loc[query_index, features].values.reshape(1, -1)
     
-    model = NearestNeighbors(n_neighbors=k+1, metric='euclidean')  # +1, bo pierwszy wynik to on sam
+    model = NearestNeighbors(n_neighbors=len(df_norm), metric='euclidean')
     model.fit(df_norm[features])
     distances, indices = model.kneighbors(query_vector)
 
-    # Pomijamy pierwszy wynik (ten sam utwór), zwracamy kolejne
-    similar_indices = indices[0][1:]
-    similar_distances = distances[0][1:]
+    # Pomijamy wyniki z distance == 0 (te same lub prawie identyczne utwory)
+    mask = distances[0] > 0
+    filtered_indices = indices[0][mask][:k]
+    filtered_distances = distances[0][mask][:k]
     
-    results = df_raw.loc[similar_indices, ['track_name', 'artists']].copy()
-    results['distance'] = similar_distances
+    results = df_raw.loc[filtered_indices, ['track_name', 'artists']].copy()
+    results['distance'] = filtered_distances
     return results
 
 
