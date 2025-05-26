@@ -96,6 +96,24 @@ st.pyplot(fig)
 st.subheader("📈 Descriptive Statistics")
 st.dataframe(stats.T.round(2))
 
+st.markdown("### 🧠 Feature Selection Strategy for Similarity Search")
+st.markdown("""
+- The dataset includes a wide range of audio and metadata features from Spotify — such as `popularity`, `duration`, `danceability`, `valence`, `loudness`, and more.
+- For the purposes of recommending **similar-sounding tracks**, we focused on **intrinsic audio characteristics** — those that describe the sound and feel of the track, not its popularity or context.
+- We excluded features like:
+  - `popularity`: reflects user behavior, not audio similarity,
+  - `duration_s`: varies heavily, with some tracks resembling **podcast-length content**, which could distort similarity scoring.
+- Based on correlation analysis and musical intuition, we selected the following features:
+  - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score` (*see below*), and `vocals_strength` (*see below*)
+- These cover the essential dimensions of musical experience:
+  - **rhythm** (`tempo`, `danceability`),
+  - **intensity and production** (`energy`, `loudness`, `acousticness`),
+  - **emotional tone** (`valence`, `mood_score`),
+  - **vocal character** (`vocals_strength`)
+- This combination of features forms a **compact yet expressive vector representation** of each track, well-suited for similarity search.
+""")
+
+
 # Wykresy po normalizacji
 st.subheader("📊 Normalized Feature Distributions (used for similarity search)")
 fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 16))
