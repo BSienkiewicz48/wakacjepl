@@ -166,15 +166,16 @@ st.markdown("""
 - Final result: **Top 5 most similar tracks**, sorted by distance (smallest first).
 """)
 
-#Podsumowanie i potencjalne ulepszenia
+# Podsumowanie i potencjalne ulepszenia
 st.markdown("### ✅ Summary and Potential Improvements")
 st.markdown("""
-- The system recommends similar tracks based on audio features only — ignoring popularity and metadata.
-- Features were selected to reflect **musical feel and structure**, not user behavior.
-- Outliers were clipped, and engineered features like `mood_score` and `vocals_strength` were added.
+- The system recommends similar tracks based solely on **normalized audio features**, intentionally ignoring metadata such as album or genre.
+- The `popularity` feature was not used for measuring similarity, but **was used to filter out low-relevance tracks** and break ties when needed.
+- Selected features were chosen to reflect **musical structure, emotion, and production style**, not user behavior.
+- Outliers were capped at the 95th percentile, and engineered features like `mood_score` and `vocals_strength` were introduced for better expressiveness.
 
 **What could improve user experience:**
-- Ensure at least one recommendation is from the **same artist** — likely to increase perceived relevance.
+- Ensure at least one recommendation is from the **same artist** — likely to increase perceived relevance and continuity.
 - Separate long-duration tracks (e.g. podcasts) into a different comparison group.
-- Suggest additional songs from the **same album**, when available.
+- Suggest additional tracks from the **same album**, where applicable.
 """)
