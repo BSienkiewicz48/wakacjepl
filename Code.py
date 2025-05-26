@@ -47,7 +47,6 @@ def load_and_prepare_data():
 
     return df.reset_index(drop=True), df_norm.reset_index(drop=True), features, stats, corr, cols
 
-
 # --- FUNKCJA REKOMENDACJI ---
 def find_similar_tracks(row_index, df_raw, df_norm, features, k=5):
     query_vector = df_norm.loc[row_index, features].values.reshape(1, -1)
@@ -65,6 +64,7 @@ def find_similar_tracks(row_index, df_raw, df_norm, features, k=5):
     results = results.sort_values(['track_name', 'distance', 'popularity'], ascending=[True, True, False])
     results = results.drop_duplicates(subset=['track_name', 'distance'], keep='first')
     return results.head(k)[['track_name', 'artists', 'distance']]
+
 
 
 # --- STRONA WIZUALNA - STREAMLIT ---
@@ -164,4 +164,17 @@ st.markdown("""
 - Tracks with **distance = 0** (identical or nearly identical) are excluded.
 - If multiple results share the same `track_name` and distance, the one with **higher popularity** is kept.
 - Final result: **Top 5 most similar tracks**, sorted by distance (smallest first).
+""")
+
+#Podsumowanie i potencjalne ulepszenia
+st.markdown("### ✅ Summary and Potential Improvements")
+st.markdown("""
+- The system recommends similar tracks based on audio features only — ignoring popularity and metadata.
+- Features were selected to reflect **musical feel and structure**, not user behavior.
+- Outliers were clipped, and engineered features like `mood_score` and `vocals_strength` were added.
+
+**What could improve user experience:**
+- Ensure at least one recommendation is from the **same artist** — likely to increase perceived relevance.
+- Separate long-duration tracks (e.g. podcasts) into a different comparison group.
+- Suggest additional songs from the **same album**, when available.
 """)
