@@ -74,13 +74,13 @@ st.title("🎵 Spotify Track Explorer")
 st.markdown("Explore the distribution and relationships between audio features.")
 
 # Heatmapa korelacji
-st.subheader("🔗 Feature Correlation Matrix")
+st.subheader("Feature Correlation Matrix")
 fig_corr, ax_corr = plt.subplots(figsize=(10, 8))
 sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax_corr)
 st.pyplot(fig_corr)
 
 # Wykresy rozkładu (oryginalne cechy)
-st.subheader("📊 Feature Distributions")
+st.subheader("Feature Distributions")
 fig, axs = plt.subplots(4, 3, figsize=(18, 16))
 axs = axs.flatten()
 for i, col_name in enumerate(cols):
@@ -93,10 +93,10 @@ plt.tight_layout()
 st.pyplot(fig)
 
 # Statystyki opisowe
-st.subheader("📈 Descriptive Statistics")
+st.subheader("Descriptive Statistics")
 st.dataframe(stats.T.round(2))
 
-st.markdown("### 🧠 Feature Selection Strategy for Similarity Search")
+st.markdown("### Feature Selection Strategy for Similarity Search")
 st.markdown("""
 - The dataset includes a wide range of audio and metadata features from Spotify — such as `popularity`, `duration`, `danceability`, `valence`, `loudness`, and more.
 - For the purposes of recommending **similar-sounding tracks**, we focused on **intrinsic audio characteristics** — those that describe the sound and feel of the track, not its popularity or context.
@@ -115,7 +115,7 @@ st.markdown("""
 
 
 # Wykresy po normalizacji
-st.subheader("📊 Normalized Feature Distributions (used for similarity search)")
+st.subheader("Normalized Feature Distributions (used for similarity search)")
 fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 16))
 axs_norm = axs_norm.flatten()
 for i, col_name in enumerate(features_for_similarity):
@@ -127,7 +127,7 @@ for i in range(len(features_for_similarity), 9):
 plt.tight_layout()
 st.pyplot(fig_norm)
 
-st.markdown("### 🧮 Notes on Normalized Features and Outlier Handling")
+st.markdown("### Notes on Normalized Features and Outlier Handling")
 st.markdown("""
 - All features used for similarity search are **scaled to the [0, 1] range** using **Min-Max normalization**.
 - This ensures that each feature contributes equally to the distance calculation.
@@ -140,8 +140,32 @@ st.markdown("""
 - This preprocessing step improves the **accuracy and interpretability** of recommendations.
 """)
 
+
+st.subheader("📐 Elbow Plot for Nearest Neighbors")
+
+@st.cache_data
+def compute_elbow(df_norm, features):
+    model = NearestNeighbors(metric='euclidean')
+    model.fit(df_norm[features])
+    k_range = range(1, 16)
+    distances = []
+    for k in k_range:
+        dist, _ = model.kneighbors(df_norm[features], n_neighbors=k)
+        mean_dist = np.mean(dist[:, -1])  # ostatni dystans
+        distances.append(mean_dist)
+    return list(k_range), distances
+
+k_values, avg_dists = compute_elbow(df_norm, features_for_similarity)
+fig_elbow, ax_elbow = plt.subplots()
+ax_elbow.plot(k_values, avg_dists, marker="o")
+ax_elbow.set_xlabel("k")
+ax_elbow.set_ylabel("Avg distance to k-th neighbor")
+ax_elbow.set_title("Elbow Plot")
+st.pyplot(fig_elbow)
+
+
 # Interfejs wyszukiwania podobnych utworów
-st.subheader("🎯 Find Similar Tracks")
+st.subheader("Find Similar Tracks")
 selected_combo = st.selectbox("Choose a track:", df['title_artist'].unique())
 selected_index = df[df['title_artist'] == selected_combo].index[0]
 
@@ -151,7 +175,7 @@ if st.button("🔍 Find Similar"):
     st.dataframe(results_df.reset_index(drop=True), hide_index=True)
 
 # Opis działania
-st.markdown("### 🔎 How Similar Tracks Are Selected")
+st.markdown("### How Similar Tracks Are Selected")
 st.markdown("""
 - We analyze **8 normalized audio features** that capture musical style and mood:
   - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
@@ -167,7 +191,7 @@ st.markdown("""
 """)
 
 # Podsumowanie i potencjalne ulepszenia
-st.markdown("### ✅ Summary and Potential Improvements")
+st.markdown("### Summary and Potential Improvements")
 st.markdown("""
 - The system recommends similar tracks based solely on **normalized audio features**, intentionally ignoring metadata such as album or genre.
 - The `popularity` feature was not used for measuring similarity, but **was used to filter out low-relevance tracks** and break ties when needed.
