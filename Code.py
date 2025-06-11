@@ -79,6 +79,18 @@ fig_corr, ax_corr = plt.subplots(figsize=(10, 8))
 sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax_corr)
 st.pyplot(fig_corr)
 
+st.markdown("### Insights from the Correlation Matrix")
+st.markdown("""
+The correlation matrix reveals several important relationships between audio features:
+
+- **`energy` and `loudness`** are strongly positively correlated — which makes sense, as more energetic tracks tend to be louder.
+- **`danceability`** shows a moderate positive correlation with both **`valence`** and **`energy`**, indicating that upbeat, energetic songs are often more danceable.
+- **`acousticness`** is **negatively correlated** with most other features — especially `energy` and `loudness` — suggesting that acoustic tracks tend to be calmer and quieter.
+- **`instrumentalness`** and **`speechiness`** are not strongly correlated with other features, making them useful for describing niche aspects of tracks (e.g. vocals vs. instrumental).
+
+These patterns support the selection of features used in the similarity search — as they capture distinct and meaningful dimensions of a song's sound profile.
+""")
+
 # Wykresy rozkładu (oryginalne cechy)
 st.subheader("Feature Distributions")
 fig, axs = plt.subplots(4, 3, figsize=(18, 16))
@@ -141,7 +153,7 @@ st.markdown("""
 """)
 
 
-st.subheader("📐 Elbow Plot for Nearest Neighbors")
+st.subheader("Elbow Plot for Nearest Neighbors")
 
 @st.cache_data
 def compute_elbow(df_norm, features):
