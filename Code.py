@@ -73,6 +73,18 @@ df, df_norm, features_for_similarity, stats, corr_matrix, cols = load_and_prepar
 st.title("🎵 Spotify Track Explorer")
 st.markdown("Explore the distribution and relationships between audio features.")
 
+st.markdown("### 📌 Assumptions and Analytical Goals")
+st.markdown("""
+This project assumes that:
+
+- The goal is to recommend songs based on **audio similarity**, not user behavior.
+- We focus on **intrinsic musical properties** rather than metadata like genre, album or release date.
+- **Popularity is excluded from similarity scoring**, since it reflects external factors — but is still used to filter and prioritize results.
+- **Track duration** is excluded as well, due to high variance and the presence of non-musical content (e.g. podcasts or live sets).
+- Engineered features (`mood_score`, `vocals_strength`) are introduced to better reflect emotional and vocal characteristics of tracks.
+- The user will be able to explore the data, understand how similarity is defined, and receive transparent recommendations.
+""")
+
 # Heatmapa korelacji
 st.subheader("Feature Correlation Matrix")
 fig_corr, ax_corr = plt.subplots(figsize=(10, 8))
