@@ -104,7 +104,13 @@ These patterns support the selection of features used in the similarity search �
 """)
 
 # Wykresy rozkładu (oryginalne cechy)
-st.subheader("Feature Distributions")
+st.markdown("### 📊 Feature Distributions")
+st.markdown("""
+Before building the recommendation logic, we explored the **raw distribution of available features** to understand their behavior and spot outliers, skews or irregularities.
+
+These visualizations helped guide key preprocessing choices like **feature selection**, **normalization**, and **outlier handling**.
+""")
+
 fig, axs = plt.subplots(4, 3, figsize=(18, 16))
 axs = axs.flatten()
 for i, col_name in enumerate(cols):
@@ -115,6 +121,20 @@ for i in range(len(cols), 12):
     fig.delaxes(axs[i])
 plt.tight_layout()
 st.pyplot(fig)
+
+st.markdown("""
+- **`popularity`**: Skrajnie prawoskośny rozkład – wiele utworów o niskiej popularności, mniej hitów.
+- **`duration_s`**: Obecność długich utworów (prawdopodobnie podcastów lub setów) znacząco wydłuża ogon rozkładu.
+- **`danceability`**, **`energy`**, **`valence`**: Mają dobrze rozciągnięte rozkłady, co sugeruje dużą różnorodność rytmiczną i emocjonalną.
+- **`loudness`**: Skoncentrowana wokół -10 dB – typowy poziom masteringu muzyki popularnej.
+- **`speechiness`**, **`instrumentalness`**, **`acousticness`**, **`liveness`**: Silnie skośne, z wartościami skupionymi przy 0 – wskazuje na dominację standardowych, nieakustycznych, niemonologowych utworów.
+- **`tempo`**: Rozkład skupiony wokół 100–130 BPM – tempo typowe dla muzyki tanecznej i popowej.
+
+🔎 Analiza tych rozkładów pomogła w podjęciu decyzji o:
+- Wykluczeniu cech nieprzydatnych (np. `duration_s`),
+- Zastosowaniu cięcia wartości odstających (`speechiness`, `instrumentalness`),
+- Normalizacji cech, by umożliwić sensowne porównania w wielowymiarowej przestrzeni.
+""")
 
 # Statystyki opisowe
 st.subheader("Descriptive Statistics")
