@@ -122,18 +122,13 @@ for i in range(len(cols), 12):
 plt.tight_layout()
 st.pyplot(fig)
 
+st.markdown("### 🧾 Feature Distributions: Key Observations")
 st.markdown("""
-- **`popularity`**: Skrajnie prawoskośny rozkład – wiele utworów o niskiej popularności, mniej hitów.
-- **`duration_s`**: Obecność długich utworów (prawdopodobnie podcastów lub setów) znacząco wydłuża ogon rozkładu.
-- **`danceability`**, **`energy`**, **`valence`**: Mają dobrze rozciągnięte rozkłady, co sugeruje dużą różnorodność rytmiczną i emocjonalną.
-- **`loudness`**: Skoncentrowana wokół -10 dB – typowy poziom masteringu muzyki popularnej.
-- **`speechiness`**, **`instrumentalness`**, **`acousticness`**, **`liveness`**: Silnie skośne, z wartościami skupionymi przy 0 – wskazuje na dominację standardowych, nieakustycznych, niemonologowych utworów.
-- **`tempo`**: Rozkład skupiony wokół 100–130 BPM – tempo typowe dla muzyki tanecznej i popowej.
-
-🔎 Analiza tych rozkładów pomogła w podjęciu decyzji o:
-- Wykluczeniu cech nieprzydatnych (np. `duration_s`),
-- Zastosowaniu cięcia wartości odstających (`speechiness`, `instrumentalness`),
-- Normalizacji cech, by umożliwić sensowne porównania w wielowymiarowej przestrzeni.
+- `duration_s` shows a sharp skew due to the presence of long-format content (e.g. podcasts).
+- `instrumentalness` and `speechiness` contain extreme outliers — capped at the 95th percentile in preprocessing.
+- `loudness` has a narrow peak, suggesting a typical mastering level in most tracks.
+- `energy`, `valence`, and `danceability` are well distributed and highly relevant for listener perception.
+- Several features (e.g. `liveness`, `acousticness`) are heavily concentrated near 0, indicating the dominance of studio-produced tracks.
 """)
 
 # Statystyki opisowe
