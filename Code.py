@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import NearestNeighbors
+import openai
+
+api_key = st.secrets["API_KEY"]
 
 # --- ŁADOWANIE I PRZETWARZANIE DANYCH ---
 @st.cache_data
@@ -64,6 +67,38 @@ def find_similar_tracks(row_index, df_raw, df_norm, features, k=5):
     results = results.sort_values(['track_name', 'distance', 'popularity'], ascending=[True, True, False])
     results = results.drop_duplicates(subset=['track_name', 'distance'], keep='first')
     return results.head(k)[['track_name', 'artists', 'distance']]
+
+
+def evaluate_similarity_with_ai(selected_track, recommended_df):
+    # Tworzymy prompt do oceny przez AI
+    prompt = f"""
+You are a music expert. Analyze the similarity between a selected song and its recommended songs based on the following data:
+
+Selected track:
+{selected_track}
+
+Recommended tracks:
+{recommended_df.to_string(index=False)}
+
+Evaluate whether the recommendations make sense in terms of:
+- genre
+- mood
+- instrumentation
+- overall musical feel
+
+Be concise, objective, and focus on musical similarity.
+"""
+    client = openai.OpenAI(api_key=api_key)
+    
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that evaluates music similarity recommendations."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    
+    return response.choices[0].message.content.strip()
 
 
 
@@ -224,6 +259,12 @@ if st.button("🔍 Find Similar"):
     results_df = find_similar_tracks(selected_index, df, df_norm, features_for_similarity, k=5)
     st.write(f"Top 5 tracks similar to **{selected_combo}**:")
     st.dataframe(results_df.reset_index(drop=True), hide_index=True)
+    
+    # AI Evaluation
+    ai_feedback = evaluate_similarity_with_ai(selected_combo, results_df[['track_name', 'artists']])
+    st.markdown("### 🤖 AI Evaluation of Recommendations")
+    st.write(ai_feedback)
+
 
 # Opis działania
 st.markdown("### How Similar Tracks Are Selected")
