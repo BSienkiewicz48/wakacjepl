@@ -262,7 +262,10 @@ if st.button("🔍 Find Similar"):
     
     # AI Evaluation
     ai_feedback = evaluate_similarity_with_ai(selected_combo, results_df[['track_name', 'artists']])
-    st.markdown("### 🤖 AI Evaluation of Recommendations")
+    st.markdown("### AI Evaluation of Recommendations")
+    st.markdown("""
+AI analyzes the musical similarity of the recommended tracks with each search. Here's the generated feedback:
+""")
     st.write(ai_feedback)
 
 
