@@ -87,6 +87,7 @@ Evaluate whether the recommendations make sense in terms of:
 - overall musical feel
 
 Be concise, objective, and focus on musical similarity.
+At the end of analysis of every track provide a straight opinion whether the recommendation is relevant or not and write it bolded.
 """
     client = openai.OpenAI(api_key=api_key)
     
