@@ -73,7 +73,7 @@ df, df_norm, features_for_similarity, stats, corr_matrix, cols = load_and_prepar
 st.title("🎵 Spotify Track Explorer")
 st.markdown("Explore the distribution and relationships between audio features.")
 
-st.markdown("### 📌 Assumptions and Analytical Goals")
+st.markdown("### Assumptions and Analytical Goals")
 st.markdown("""
 This project assumes that:
 
@@ -104,7 +104,7 @@ These patterns support the selection of features used in the similarity search �
 """)
 
 # Wykresy rozkładu (oryginalne cechy)
-st.markdown("### 📊 Feature Distributions")
+st.markdown("### Feature Distributions")
 st.markdown("""
 Before building the recommendation logic, we explored the **raw distribution of available features** to understand their behavior and spot outliers, skews or irregularities.
 
@@ -122,7 +122,7 @@ for i in range(len(cols), 12):
 plt.tight_layout()
 st.pyplot(fig)
 
-st.markdown("### 🧾 Feature Distributions: Key Observations")
+st.markdown("### Feature Distributions: Key Observations")
 st.markdown("""
 - `duration_s` shows a sharp skew due to the presence of long-format content (e.g. podcasts).
 - `instrumentalness` and `speechiness` contain extreme outliers — capped at the 95th percentile in preprocessing.
@@ -202,6 +202,18 @@ ax_elbow.set_ylabel("Avg distance to k-th neighbor")
 ax_elbow.set_title("Elbow Plot")
 st.pyplot(fig_elbow)
 
+
+st.markdown("""
+### Elbow Plot Analysis for Optimal `k`
+
+The plot above illustrates how the average distance to the *k*-th nearest neighbor increases with larger values of `k`. Initially, the distance grows rapidly, but this growth slows down around **k = 5**, forming a noticeable **"elbow"** in the curve.
+
+This "elbow point" indicates an optimal trade-off:
+- ✅ Too small `k` might result in unstable or overly specific recommendations.
+- 🚫 Too large `k` could dilute the quality by including less relevant, distant neighbors.
+
+Based on this analysis, **`k = 5`** offers a balanced choice — providing relevant, compact recommendations without including unrelated outliers.
+""")
 
 # Interfejs wyszukiwania podobnych utworów
 st.subheader("Find Similar Tracks")
