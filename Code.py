@@ -215,21 +215,6 @@ st.markdown("""
 - This preprocessing step improves the **accuracy and interpretability** of recommendations.
 """)
 
-# Opis działania
-st.markdown("### How Similar Tracks Are Selected")
-st.markdown("""
-- We analyze **8 normalized audio features** that capture musical style and mood:
-  - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
-- A selected track is represented as a **feature vector** in this multi-dimensional space.
-- We use **K-Nearest Neighbors (KNN)** with **Euclidean distance** to find the closest tracks.
-- For each comparison:
-  - The **Euclidean distance** is calculated as:  
-    $\\text{distance} = \\sqrt{(a_1 - b_1)^2 + (a_2 - b_2)^2 + \\dots + (a_8 - b_8)^2}$
-  - **Lower distance = higher similarity**.
-- Tracks with **distance = 0** (identical or nearly identical) are excluded.
-- If multiple results share the same `track_name` and distance, the one with **higher popularity** is kept.
-- Final result: **Top 5 most similar tracks**, sorted by distance (smallest first).
-""")
 
 st.subheader("Elbow Plot for Nearest Neighbors")
 
@@ -253,7 +238,21 @@ ax_elbow.set_ylabel("Avg distance to k-th neighbor")
 ax_elbow.set_title("Elbow Plot")
 st.pyplot(fig_elbow)
 
-
+# Opis działania
+st.markdown("### How Similar Tracks Are Selected")
+st.markdown("""
+- We analyze **8 normalized audio features** that capture musical style and mood:
+  - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
+- A selected track is represented as a **feature vector** in this multi-dimensional space.
+- We use **K-Nearest Neighbors (KNN)** with **Euclidean distance** to find the closest tracks.
+- For each comparison:
+  - The **Euclidean distance** is calculated as:  
+    $\\text{distance} = \\sqrt{(a_1 - b_1)^2 + (a_2 - b_2)^2 + \\dots + (a_8 - b_8)^2}$
+  - **Lower distance = higher similarity**.
+- Tracks with **distance = 0** (identical or nearly identical) are excluded.
+- If multiple results share the same `track_name` and distance, the one with **higher popularity** is kept.
+- Final result: **Top 5 most similar tracks**, sorted by distance (smallest first).
+""")
 
 st.markdown("""
 ### Elbow Plot Analysis for Optimal `k`
