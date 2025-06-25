@@ -51,7 +51,7 @@ def load_and_prepare_data():
     return df.reset_index(drop=True), df_norm.reset_index(drop=True), features, stats, corr, cols
 
 # --- FUNKCJA REKOMENDACJI ---
-def find_similar_tracks(row_index, df_raw, df_norm, features, k=5):
+def find_similar_tracks(row_index, df_raw, df_norm, features, k=5,sort_by_popularity=True):
     query_vector = df_norm.loc[row_index, features].values.reshape(1, -1)
     model = NearestNeighbors(n_neighbors=k+10, metric='euclidean')
     model.fit(df_norm[features])
@@ -64,33 +64,52 @@ def find_similar_tracks(row_index, df_raw, df_norm, features, k=5):
     results = df_raw.loc[filtered_indices, ['track_name', 'artists', 'popularity']].copy()
     results['distance'] = filtered_distances
 
-    results = results.sort_values(['track_name', 'distance', 'popularity'], ascending=[True, True, False])
+    if sort_by_popularity:
+        results = results.sort_values(['distance', 'popularity'], ascending=[True, False])
+    else:
+        results = results.sort_values('distance')
+
     results = results.drop_duplicates(subset=['track_name', 'distance'], keep='first')
     return results.head(k)[['track_name', 'artists', 'distance']]
 
 
 def evaluate_similarity_with_ai(selected_track, recommended_df):
-    # Tworzymy prompt do oceny przez AI
+    # Formatowanie listy utworów
+    recommended_list = "\n".join(
+        f"{row['track_name']} – {row['artists']} (distance: {row['distance']:.2f})"
+        for _, row in recommended_df.iterrows()
+    )
+
+    # Prompt z kontekstem działania algorytmu
     prompt = f"""
-You are a music expert. Analyze the similarity between a selected song and its recommended songs based on the following data:
+You are a music expert. Analyze whether the following song recommendations are musically valid.
+
+Songs are selected based on normalized audio features (like danceability, energy, valence, loudness, etc.), using Euclidean distance in feature space.
+
+Keep in mind:
+- This method does **not** account for genre or artist metadata — only measurable musical attributes.
+- A small distance doesn't guarantee that songs will feel similar to the listener.
+- Your task is to evaluate **musical similarity**, not algorithm correctness.
 
 Selected track:
 {selected_track}
 
 Recommended tracks:
-{recommended_df.to_string(index=False)}
+{recommended_list}
 
-Evaluate whether the recommendations make sense in terms of:
+Evaluate whether each recommendation makes sense in terms of:
 - genre
-- mood
+- mood / emotional tone
 - instrumentation
 - overall musical feel
 
-Be concise, objective, and focus on musical similarity.
-At the end of analysis of every track provide a straight opinion whether the recommendation is relevant or not and write it bolded.
+For each recommendation:
+- Provide a short, clear assessment (1–2 sentences).
+- Conclude with **Relevant** or **Not relevant** in bold.
 """
+
     client = openai.OpenAI(api_key=api_key)
-    
+
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
@@ -98,8 +117,9 @@ At the end of analysis of every track provide a straight opinion whether the rec
             {"role": "user", "content": prompt}
         ]
     )
-    
+
     return response.choices[0].message.content.strip()
+
 
 
 
@@ -132,7 +152,7 @@ st.markdown("""
 The correlation matrix reveals several important relationships between audio features:
 
 - **`energy` and `loudness`** are strongly positively correlated — which makes sense, as more energetic tracks tend to be louder.
-- **`danceability`** shows a moderate positive correlation with both **`valence`** and **`energy`**, indicating that upbeat, energetic songs are often more danceable.
+- **`danceability`** shows a moderate positive correlation with both **`valence`** and **`loundness`**, indicating that upbeat, louder songs are often more danceable.
 - **`acousticness`** is **negatively correlated** with most other features — especially `energy` and `loudness` — suggesting that acoustic tracks tend to be calmer and quieter.
 - **`instrumentalness`** and **`speechiness`** are not strongly correlated with other features, making them useful for describing niche aspects of tracks (e.g. vocals vs. instrumental).
 
@@ -272,8 +292,11 @@ st.subheader("Find Similar Tracks")
 selected_combo = st.selectbox("Choose a track:", df['title_artist'].unique())
 selected_index = df[df['title_artist'] == selected_combo].index[0]
 
+use_popularity = st.checkbox("Sort by popularity within results", value=True)
+
 if st.button("🔍 Find Similar"):
-    results_df = find_similar_tracks(selected_index, df, df_norm, features_for_similarity, k=5)
+    results_df = find_similar_tracks(
+    selected_index, df, df_norm, features_for_similarity, k=5, sort_by_popularity=use_popularity)
     st.write(f"Top 5 tracks similar to **{selected_combo}**:")
     st.dataframe(results_df.reset_index(drop=True), hide_index=True)
     
