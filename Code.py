@@ -65,7 +65,7 @@ def find_similar_tracks(row_index, df_raw, df_norm, features, k=5,sort_by_popula
     results['distance'] = filtered_distances
 
     if sort_by_popularity:
-        results = results.sort_values(['distance', 'popularity'], ascending=[True, False])
+        results = results.sort_values(['popularity'], ascending=[True])
     else:
         results = results.sort_values('distance')
 
