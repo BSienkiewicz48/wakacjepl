@@ -223,17 +223,18 @@ plt.tight_layout()
 st.pyplot(fig_norm)
 
 st.markdown("### Notes on Normalized Features and Outlier Handling")
-st.markdown("""
-- All features used for similarity search are **scaled to the [0, 1] range** using **Min-Max normalization**.
-- This ensures that each feature contributes equally to the distance calculation.
-- **Outliers in `instrumentalness` and `speechiness`** are handled by:
-  - Clipping values above the 95th percentile to a fixed cap.
-  - This prevents rare extreme values from skewing similarity scores.
-- The final feature set includes engineered metrics like:
-  - `mood_score = valence * energy`
-  - `vocals_strength = 1 - instrumentalness - speechiness`
-- This preprocessing step improves the **accuracy and interpretability** of recommendations.
-""")
+st.markdown(
+    "- All features used for similarity search are **scaled to the [0, 1] range** using **Min-Max normalization**.\n"
+    "- This ensures that each feature contributes equally to the distance calculation.\n"
+    "- **Outliers in `instrumentalness` and `speechiness`** are handled by:\n"
+    "  - Clipping values above the 95th percentile to a fixed cap.\n"
+    "  - This prevents rare extreme values from skewing similarity scores.\n"
+    "- The final feature set includes engineered metrics like:\n"
+    "  - `mood_score = valence * energy`\n"
+    "  - `vocals_strength = 1 - instrumentalness - speechiness`\n"
+    "- This preprocessing step improves the **accuracy and interpretability** of recommendations."
+)
+
 
 # Opis działania
 st.markdown("### How Similar Tracks Are Selected")
