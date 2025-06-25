@@ -297,17 +297,21 @@ use_popularity = st.checkbox("Sort by popularity within results", value=True)
 
 if st.button("🔍 Find Similar"):
     results_df = find_similar_tracks(
-    selected_index, df, df_norm, features_for_similarity, k=5, sort_by_popularity=use_popularity)
+        selected_index, df, df_norm, features_for_similarity, k=5, sort_by_popularity=use_popularity
+    )
     st.write(f"Top 5 tracks similar to **{selected_combo}**:")
-    st.dataframe(results_df.reset_index(drop=True), hide_index=True)
-    
+    st.dataframe(results_df[['track_name', 'artists', 'distance', 'popularity']].reset_index(drop=True), hide_index=True)
+
     # AI Evaluation
-    ai_feedback = evaluate_similarity_with_ai(selected_combo, results_df[['track_name', 'artists', 'distance']])
+    ai_feedback = evaluate_similarity_with_ai(
+        selected_combo, results_df[['track_name', 'artists', 'distance']]
+    )
     st.markdown("### AI Evaluation of Recommendations")
     st.markdown("""
 AI analyzes the musical similarity of the recommended tracks with each search. Here's the generated feedback:
 """)
     st.write(ai_feedback)
+
 
 # Podsumowanie i potencjalne ulepszenia
 st.markdown("### Summary and Potential Improvements")
