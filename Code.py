@@ -70,7 +70,8 @@ def find_similar_tracks(row_index, df_raw, df_norm, features, k=5,sort_by_popula
         results = results.sort_values('distance')
 
     results = results.drop_duplicates(subset=['track_name', 'distance'], keep='first')
-    return results.head(k)[['track_name', 'artists', 'distance']]
+    return results.head(k)[['track_name', 'artists', 'distance', 'popularity']]
+
 
 
 def evaluate_similarity_with_ai(selected_track, recommended_df):
