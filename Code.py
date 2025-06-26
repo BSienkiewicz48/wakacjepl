@@ -134,7 +134,7 @@ st.markdown("### Assumptions and Analytical Goals")
 st.markdown("""
 This project assumes that:
 
-- The goal is to recommend songs based on **audio similarity**, not user behavior.
+- The goal is to recommend songs based on **audio similarity**.
 - We focus on **intrinsic musical properties** rather than metadata like genre, album or release date.
 - **Popularity is excluded from similarity scoring**, since it reflects external factors — but is still used to filter and prioritize results.
 - **Track duration** is excluded as well, due to high variance and the presence of non-musical content (e.g. podcasts or live sets).
@@ -163,7 +163,7 @@ These patterns support the selection of features used in the similarity search �
 # Wykresy rozkładu (oryginalne cechy)
 st.markdown("### Feature Distributions")
 st.markdown("""
-Before building the recommendation logic, we explored the **raw distribution of available features** to understand their behavior and spot outliers, skews or irregularities.
+Before building the recommendation logic, I explored the **raw distribution of available features** to understand their behavior and spot outliers, skews or irregularities.
 
 These visualizations helped guide key preprocessing choices like **feature selection**, **normalization**, and **outlier handling**.
 """)
@@ -181,11 +181,14 @@ st.pyplot(fig)
 
 st.markdown("### Feature Distributions: Key Observations")
 st.markdown("""
-- `duration_s` shows a sharp skew due to the presence of long-format content (e.g. podcasts).
-- `instrumentalness` and `speechiness` contain extreme outliers — capped at the 95th percentile in preprocessing.
+- `duration_s` shows a sharp skew due to the presence of long-format content (e.g. podcasts).  
+  This strong right skew indicates that while most tracks are relatively short, a small number of very long items (e.g. podcasts or live sets) greatly exceed the typical duration and could distort distance-based metrics.
+- `instrumentalness` and `speechiness` contain extreme outliers — capped at the 95th percentile in preprocessing.  
+  These values were clipped before normalization because their long tails would have distorted the min-max scaling process and reduced the discriminative power of these features in similarity comparisons.
 - `loudness` has a narrow peak, suggesting a typical mastering level in most tracks.
 - `energy`, `valence`, and `danceability` are well distributed and highly relevant for listener perception.
-- Several features (e.g. `liveness`, `acousticness`) are heavily concentrated near 0, indicating the dominance of studio-produced tracks.
+- Several features (e.g. `liveness`, `acousticness`) are heavily concentrated near 0, indicating the dominance of studio-produced tracks in the dataset.
+
 """)
 
 # Statystyki opisowe
@@ -195,18 +198,18 @@ st.dataframe(stats.T.round(2))
 st.markdown("### Feature Selection Strategy for Similarity Search")
 st.markdown("""
 - The dataset includes a wide range of audio and metadata features from Spotify — such as `popularity`, `duration`, `danceability`, `valence`, `loudness`, and more.
-- For the purposes of recommending **similar-sounding tracks**, we focused on **intrinsic audio characteristics** — those that describe the sound and feel of the track, not its popularity or context.
-- We excluded features like:
+- For the purposes of recommending **similar-sounding tracks**, I focused on **intrinsic audio characteristics** — those that describe the sound and feel of the track, not its popularity or context.
+- I excluded features like:
   - `popularity`: reflects user behavior, not audio similarity,
   - `duration_s`: varies heavily, with some tracks resembling **podcast-length content**, which could distort similarity scoring.
-- Based on correlation analysis and musical intuition, we selected the following features:
+- Based on correlation analysis and musical intuition, I selected the following features:
   - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score` (*see below*), and `vocals_strength` (*see below*)
 - These cover the essential dimensions of musical experience:
   - **rhythm** (`tempo`, `danceability`),
   - **intensity and production** (`energy`, `loudness`, `acousticness`),
   - **emotional tone** (`valence`, `mood_score`),
   - **vocal character** (`vocals_strength`)
-- This combination of features forms a **compact yet expressive vector representation** of each track, well-suited for similarity search.
+- This combination of features forms a **compact yet expressive vector representation** of each track, suited for similarity search.
 """)
 
 
@@ -240,7 +243,7 @@ st.markdown(
 # Opis działania
 st.markdown("### How Similar Tracks Are Selected")
 st.markdown("""
-- We analyze **8 normalized audio features** that capture musical style and mood:
+- I analyze **8 normalized audio features** that capture musical style and mood:
   - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
 - A selected track is represented as a **feature vector** in this multi-dimensional space.
 - We use **K-Nearest Neighbors (KNN)** with **Euclidean distance** to find the closest tracks.
