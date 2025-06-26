@@ -318,7 +318,6 @@ AI analyzes the musical similarity of the recommended tracks with each search. H
 
 
 # Podsumowanie i potencjalne ulepszenia
-st.markdown("### Summary and Potential Improvements")
 st.markdown("""
 ### Thought Process & Ideas Worth Exploring
 
