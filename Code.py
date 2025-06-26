@@ -346,5 +346,8 @@ st.markdown("""
   A two-step model can be tested:  
   First, use Euclidean distance to find the closest tracks. Then, apply **cosine similarity** to find which ones have the most **similar direction** in feature space — i.e., proportional relationships between features.  
   This can highlight structurally similar songs even if their values differ in scale.
+            
+- **Clustering** 
+    It is possible to cluster tracks based on their musical genre. Once such clusters are created, the system could ensure that at least one of the recommended tracks comes from the same cluster as the base track. This approach may help avoid situations where recommendations are numerically similar in terms of features but musically too distant from the listener’s perspective.
 
 """)
