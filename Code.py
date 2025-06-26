@@ -317,13 +317,31 @@ AI analyzes the musical similarity of the recommended tracks with each search. H
 # Podsumowanie i potencjalne ulepszenia
 st.markdown("### Summary and Potential Improvements")
 st.markdown("""
-- The system recommends similar tracks based solely on **normalized audio features**, intentionally ignoring metadata such as album or genre.
-- The `popularity` feature was not used for measuring similarity, but **was used to filter out low-relevance tracks** and break ties when needed.
-- Selected features were chosen to reflect **musical structure, emotion, and production style**, not user behavior.
-- Outliers were capped at the 95th percentile, and engineered features like `mood_score` and `vocals_strength` were introduced for better expressiveness.
+### Thought Process & Ideas Worth Exploring
 
-**What could improve user experience:**
-- Ensure at least one recommendation is from the **same artist** — likely to increase perceived relevance and continuity.
-- Separate long-duration tracks (e.g. podcasts) into a different comparison group.
-- Suggest additional tracks from the **same album**, where applicable.
+- **Dynamic Feature Weighting**  
+  It could be beneficial to emphasize features that are particularly distinctive for a given track.  
+  For example, if a song has an exceptionally high `danceability` while other features are closer to the mean, that feature could be given more weight — ensuring that highly danceable songs return recommendations with similar characteristics.
+
+- **Two-Stage Filtering Approach**  
+  Euclidean distance can be used to select a candidate pool (e.g. top 20 closest tracks), and then apply additional filtering: e.g. same artist, same album, or shared unusual feature values. This approach combines numerical proximity with semantic context.
+
+- **Popularity-Aware Re-Ranking**  
+  With higher `k` values, broader recommendation sets may include more marginal tracks. Lightly favoring more popular tracks within this pool may increase user satisfaction.  
+  Currently, `popularity` is only used to exclude tracks with value 0 — often ghost tracks or stream fraud attempts.
+
+- **Avoid Using Popularity as a Similarity Feature**  
+  Adding `popularity` directly to the similarity vector might distort results. Two tracks with the same number of streams (e.g., disco and metal) are not necessarily musically alike. Popularity should be considered secondary, not part of the audio feature space.
+
+- **Artist and Album Awareness**  
+  In real-world use, users often explore more songs from the same artist or album. Enhancing the algorithm to optionally favor such continuity — for at least one suggestion — could feel more intuitive.
+
+- **Segmenting Long-Form Content**  
+  Tracks significantly longer than typical songs are often podcasts, interviews or DJ sets. These could be analyzed in a separate similarity space to avoid mismatches between spoken word and music.
+
+- **Hybrid Similarity: Euclidean + Cosine**  
+  A two-step model can be tested:  
+  First, use Euclidean distance to find the closest tracks. Then, apply **cosine similarity** to find which ones have the most **similar direction** in feature space — i.e., proportional relationships between features.  
+  This can highlight structurally similar songs even if their values differ in scale.
+
 """)
