@@ -349,4 +349,8 @@ st.markdown("""
 - **Clustering** 
     It is possible to cluster tracks based on their musical genre. Once such clusters are created, the system could ensure that at least one of the recommended tracks comes from the same cluster as the base track. This approach may help avoid situations where recommendations are numerically similar in terms of features but musically too distant from the listener’s perspective.
 
+One of the biggest difficulties I encountered was evaluating the actual quality of recommendations. Judging whether one song is truly "similar" to another is highly subjective, especially across genres and moods.
+
+When testing with songs I knew personally, I sometimes liked the recommendations and sometimes didn’t — which made it hard to draw reliable conclusions. This motivated me to add an objective AI-based evaluation to the app: GPT-4.1 was asked to analyze the similarity of track recommendations.
+This helped remove personal bias and allowed for consistent, repeatable quality assessments
 """)
