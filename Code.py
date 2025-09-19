@@ -10,8 +10,8 @@ import random
 api_key = st.secrets["API_KEY"]
 
 # --- USTAWIENIA METRYKI HYBRYDOWEJ ---
-ALPHA = 0.60  # waga części cosine (moja rekomendacja dla tego zadania)
-RANDOM_SEED = 42  # dla powtarzalności próbkowania w elbow
+ALPHA = 0.80  # waga części cosine
+RANDOM_SEED = 42  
 
 # --- ŁADOWANIE I PRZETWARZANIE DANYCH ---
 @st.cache_data
