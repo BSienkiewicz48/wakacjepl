@@ -5,15 +5,23 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
 import openai
-import random
 
 api_key = st.secrets["API_KEY"]
 
-# --- USTAWIENIA METRYKI HYBRYDOWEJ ---
-ALPHA = 0.80  # waga części cosine
-RANDOM_SEED = 42  
+# ===============================
+# USTAWIENIA METRYKI I ADAPTACJI
+# ===============================
+ALPHA = 0.60  # waga części cosine (możesz zmienić)
+EPS = 1e-12
 
-# --- ŁADOWANIE I PRZETWARZANIE DANYCH ---
+# Adaptive Feature Weighting:
+# - im bardziej "wyjątkowa" cecha utworu bazowego (odchylenie od średniej), tym większa waga
+ADAPTIVE_BETA = 0.50   # maksymalny dodatni boost ~ +50% (przed renormalizacją do średniej = 1)
+ADAPTIVE_ZCAP = 2.0    # z-score >= 2 traktujemy jako w pełni "wyjątkowy"
+
+# ================
+# DANE I PREP
+# ================
 @st.cache_data
 def load_and_prepare_data():
     df = pd.read_parquet("raw_data.parquet")
@@ -26,6 +34,7 @@ def load_and_prepare_data():
     df['vocals_strength'] = 1 - df['instrumentalness'] - df['speechiness']
     df['vocals_strength'] = df['vocals_strength'].clip(0, 1)
 
+    # lekkie obcięcie ogonów
     df['instrumentalness'] = np.where(
         df['instrumentalness'] > df['instrumentalness'].quantile(0.95), 1, df['instrumentalness']
     )
@@ -54,48 +63,90 @@ def load_and_prepare_data():
 
     return df.reset_index(drop=True), df_norm.reset_index(drop=True), features, stats, corr, cols
 
-# --- POMOCNICZE: LICZENIE HYBRYDOWEJ PODOBIEŃSTWA ---
-def _combined_similarity(query_vec: np.ndarray, matrix: np.ndarray, alpha: float) -> np.ndarray:
+# ===========================================
+# ADAPTIVE FEATURE WEIGHTING — FUNKCJE
+# ===========================================
+def compute_adaptive_weights(feature_matrix: np.ndarray,
+                             query_vec: np.ndarray,
+                             beta: float = ADAPTIVE_BETA,
+                             z_cap: float = ADAPTIVE_ZCAP,
+                             eps: float = EPS) -> np.ndarray:
     """
-    query_vec: (n_features,)
-    matrix: (n_items, n_features)
+    Wyznacza wektory wag dla cech na podstawie "wyjątkowości" profilu utworu bazowego.
+    - liczymy z-score względem średniej i odchylenia std w zbiorze,
+    - przeskalowujemy do [0,1] poprzez podział przez z_cap,
+    - wagi = 1 + beta * exceptionalness,
+    - renormalizacja do średniej 1 (sum(w)=n_features), żeby zachować skalę metryk.
+    """
+    means = feature_matrix.mean(axis=0)
+    stds = feature_matrix.std(axis=0) + eps
+    z = np.abs(query_vec - means) / stds
+    exceptional = np.clip(z / max(z_cap, eps), 0.0, 1.0)
+    w_raw = 1.0 + beta * exceptional
+
+    # renormalizacja do średniej 1
+    w = w_raw * (feature_matrix.shape[1] / (np.sum(w_raw) + eps))
+    return w
+
+# ===========================================
+# METRYKA HYBRYDOWA (COSINE + NORM EUCLIDEAN)
+# z wagami adaptacyjnymi
+# ===========================================
+def _combined_similarity(query_vec: np.ndarray,
+                         matrix: np.ndarray,
+                         alpha: float,
+                         weights: np.ndarray | None = None,
+                         eps: float = EPS) -> np.ndarray:
+    """
     Zwraca wektor similarity w [0,1], im większa wartość tym większe podobieństwo.
+    Używa wag 'weights' (jeśli None -> wektor jedynek).
     """
-    # Cosine similarity
+    n_features = matrix.shape[1]
+    if weights is None:
+        weights = np.ones(n_features, dtype=float)
+
+    # Weighted cosine
+    # cos_w(a,b) = (sum_i w_i a_i b_i) / (sqrt(sum_i w_i a_i^2) * sqrt(sum_i w_i b_i^2))
     q = query_vec.reshape(1, -1)
-    q_norm = np.linalg.norm(q, axis=1, keepdims=True) + 1e-12
-    m_norms = np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12
-    cosine_sim = (matrix @ q.T).flatten() / (m_norms.flatten() * q_norm.flatten())
+    num = (matrix * weights) @ q.T  # (n_items, 1)
+    denom_q = np.sqrt(np.sum(weights * (q ** 2), axis=1, keepdims=True)) + eps
+    denom_m = np.sqrt(np.sum(weights * (matrix ** 2), axis=1, keepdims=True)) + eps
+    cosine_sim = (num.flatten()) / (denom_q.flatten() * denom_m.flatten())
 
-    # Normalized Euclidean -> similarity
+    # Weighted Euclidean (znormalizowany do [0,1])
+    # euclid_w = sqrt( sum_i w_i (a_i - b_i)^2 )
+    # normalized_euclid_w = euclid_w / sqrt(sum_i w_i)  (sum_i w_i = n_features, bo średnia wag = 1)
     diff = matrix - q
-    euclid = np.linalg.norm(diff, axis=1)  # [0, sqrt(n_features)]
-    max_euclid = np.sqrt(matrix.shape[1])
-    norm_euclid = euclid / (max_euclid + 1e-12)  # [0,1]
-    euclid_sim = 1.0 - norm_euclid  # [0,1], większe = bliżej
+    euclid_w = np.sqrt(np.sum(weights * (diff ** 2), axis=1))
+    norm_euclid_w = euclid_w / np.sqrt(np.sum(weights))
 
-    # Hybryda
+    euclid_sim = 1.0 - norm_euclid_w  # [0,1]
+
     sim = alpha * cosine_sim + (1.0 - alpha) * euclid_sim
-    # Clip na wszelki wypadek numeryczny
     sim = np.clip(sim, 0.0, 1.0)
     return sim
 
-# --- FUNKCJA REKOMENDACJI ---
+# =====================
+# REKOMENDACJE
+# =====================
 def find_similar_tracks(row_index, df_raw, df_norm, features, k=5, sort_by_popularity=True, alpha=ALPHA):
     # Macierz cech (już [0,1])
-    feature_matrix = df_norm[features].values.astype(float)
-    query_vector = feature_matrix[row_index]
+    X = df_norm[features].values.astype(float)
+    q = X[row_index]
+
+    # wagi adaptacyjne zależne od profilu utworu bazowego
+    w = compute_adaptive_weights(X, q, beta=ADAPTIVE_BETA, z_cap=ADAPTIVE_ZCAP)
 
     # Podobieństwo hybrydowe do wszystkich
-    sims = _combined_similarity(query_vector, feature_matrix, alpha)
+    sims = _combined_similarity(q, X, alpha, weights=w)
 
     # Wyklucz sam siebie
     sims[row_index] = -np.inf
 
-    # Weź kandydatów (k + zapas)
+    # Kandydaci (k + bufor)
     extra = 10
-    top_idx = np.argpartition(-sims, kth=min(k+extra, len(sims)-1))[:k+extra]
-    # Posortuj dokładnie po similarity malejąco
+    k_eff = min(k + extra, len(sims) - 1)
+    top_idx = np.argpartition(-sims, kth=k_eff)[:k_eff]
     top_idx = top_idx[np.argsort(-sims[top_idx])]
 
     results = df_raw.loc[top_idx, ['track_name', 'artists', 'popularity']].copy()
@@ -107,31 +158,33 @@ def find_similar_tracks(row_index, df_raw, df_norm, features, k=5, sort_by_popul
     else:
         results = results.sort_values('similarity', ascending=False)
 
-    # Usuń duplikaty po nazwie (zachowaj jeden o większej popularności bądź większym similarity w zależności od sortowania)
-    key_order = ['track_name', 'similarity'] if not sort_by_popularity else ['track_name', 'popularity']
+    # Duplikaty tytułów
     results = results.drop_duplicates(subset=['track_name'], keep='first')
-
     return results.head(k)[['track_name', 'artists', 'similarity', 'popularity']]
 
+# =====================
+# OCENA AI
+# =====================
 def evaluate_similarity_with_ai(selected_track, recommended_df, alpha=ALPHA):
-    # Formatowanie listy utworów
-    recommended_list = "\n".join(
+    rec_list = "\n".join(
         f"{row['track_name']} – {row['artists']} (similarity: {row['similarity']:.2f})"
         for _, row in recommended_df.iterrows()
     )
 
-    # Prompt z kontekstem działania algorytmu (zaktualizowany do metryki hybrydowej)
     prompt = f"""
 You are a music expert. Analyze whether the following song recommendations are musically valid.
 
-Songs are selected using a **hybrid similarity** computed on normalized audio features:
-- cosine similarity (directional similarity in feature space)
-- and normalized Euclidean similarity (1 - Euclidean/√n_features)
+Songs are selected using a **hybrid similarity** on normalized audio features with **Adaptive Feature Weighting**:
+- Weighted cosine (directional similarity)
+- and weighted normalized Euclidean similarity (1 - Euclidean/√(∑w_i))
 
-Final score: similarity = α * cosine + (1 - α) * (1 - normalized Euclidean), with α = {alpha:.2f}.
+Final score:
+similarity = α * cosine_w + (1 - α) * (1 - normalized Euclidean_w), with α = {alpha:.2f}.
+
+Weights emphasize features that are "exceptional" for the base track (larger deviation from dataset mean → larger weight; weights are renormalized to average 1).
 
 Keep in mind:
-- This method does **not** account for genre or artist metadata — only measurable musical attributes.
+- This method does **not** use genre/artist metadata — only measurable musical attributes.
 - A high similarity doesn't guarantee that songs will feel similar to every listener.
 - Your task is to evaluate **musical similarity**, not algorithm correctness.
 
@@ -139,7 +192,7 @@ Selected track:
 {selected_track}
 
 Recommended tracks:
-{recommended_list}
+{rec_list}
 
 For each recommendation evaluate:
 - genre proximity
@@ -153,7 +206,6 @@ For each recommendation:
 """
 
     client = openai.OpenAI(api_key=api_key)
-
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
@@ -161,10 +213,11 @@ For each recommendation:
             {"role": "user", "content": prompt}
         ]
     )
-
     return response.choices[0].message.content.strip()
 
-# --- STRONA WIZUALNA - STREAMLIT ---
+# =====================
+# STRONA — STREAMLIT
+# =====================
 df, df_norm, features_for_similarity, stats, corr_matrix, cols = load_and_prepare_data()
 
 st.title("🎵 Spotify Track Explorer")
@@ -179,14 +232,11 @@ This project assumes that:
 - **Popularity is excluded from similarity scoring**, since it reflects external factors — but is still used to filter and prioritize results.
 - **Track duration** is excluded as well, due to high variance and the presence of non-musical content (e.g. podcasts or live sets).
 - Engineered features (`mood_score`, `vocals_strength`) are introduced to better reflect emotional and vocal characteristics of tracks.
-- The similarity is computed using a **hybrid metric**:
-
-  **similarity = α·cosine + (1−α)·(1−normalized Euclidean)** with **α = {ALPHA:.2f}**.
-
-- The user will be able to explore the data, understand how similarity is defined, and receive transparent recommendations.
+- Similarity is computed with a **hybrid metric** and **Adaptive Feature Weighting** (features that are exceptional for the base track get higher weight).
+- Default parameters: **α = {ALPHA:.2f}**, adaptive boost β = {ADAPTIVE_BETA:.2f}.
 """)
 
-# Heatmapa korelacji
+# --- Heatmap korelacji ---
 st.subheader("Feature Correlation Matrix")
 fig_corr, ax_corr = plt.subplots(figsize=(10, 8))
 sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax_corr)
@@ -197,14 +247,14 @@ st.markdown("""
 The correlation matrix reveals several important relationships between audio features:
 
 - **`energy` and `loudness`** are strongly positively correlated — which makes sense, as more energetic tracks tend to be louder.
-- **`danceability`** shows a moderate positive correlation with both **`valence`** and **`loundness`**, indicating that upbeat, louder songs are often more danceable.
+- **`danceability`** shows a moderate positive correlation with both **`valence`** and **`loudness`**, indicating that upbeat, louder songs are often more danceable.
 - **`acousticness`** is **negatively correlated** with most other features — especially `energy` and `loudness` — suggesting that acoustic tracks tend to be calmer and quieter.
 - **`instrumentalness`** and **`speechiness`** are not strongly correlated with other features, making them useful for describing niche aspects of tracks (e.g. vocals vs. instrumental).
 
 These patterns support the selection of features used in the similarity search — as they capture distinct and meaningful dimensions of a song's sound profile.
 """)
 
-# Wykresy rozkładu (oryginalne cechy)
+# --- Rozkłady cech (raw) ---
 st.markdown("### Feature Distributions")
 st.markdown("""
 Before building the recommendation logic, I explored the **raw distribution of available features** to understand their behavior and spot outliers, skews or irregularities.
@@ -225,38 +275,26 @@ st.pyplot(fig)
 
 st.markdown("### Feature Distributions: Key Observations")
 st.markdown("""
-- `duration_s` shows a sharp skew due to the presence of long-format content (e.g. podcasts).  
-  This strong right skew indicates that while most tracks are relatively short, a small number of very long items (e.g. podcasts or live sets) greatly exceed the typical duration and could distort distance-based metrics.
-- `instrumentalness` and `speechiness` contain extreme outliers — capped at the 95th percentile in preprocessing.  
-  These values were clipped before normalization because their long tails would have distorted the min-max scaling process and reduced the discriminative power of these features in similarity comparisons.
+- `duration_s` shows a sharp skew due to the presence of long-format content (e.g. podcasts).
+- `instrumentalness` and `speechiness` contain extreme outliers — capped at the 95th percentile in preprocessing.
 - `loudness` has a narrow peak, suggesting a typical mastering level in most tracks.
 - `energy`, `valence`, and `danceability` are well distributed and highly relevant for listener perception.
-- Several features (e.g. `liveness`, `acousticness`) are heavily concentrated near 0, indicating the dominance of studio-produced tracks in the dataset.
-
+- Several features (`liveness`, `acousticness`) are heavily concentrated near 0, indicating the dominance of studio-produced tracks in the dataset.
 """)
 
-# Statystyki opisowe
+# --- Statystyki opisowe ---
 st.subheader("Descriptive Statistics")
 st.dataframe(stats.T.round(2))
 
 st.markdown("### Feature Selection Strategy for Similarity Search")
 st.markdown("""
-- The dataset includes a wide range of audio and metadata features from Spotify — such as `popularity`, `duration`, `danceability`, `valence`, `loudness`, and more.
-- For the purposes of recommending **similar-sounding tracks**, I focused on **intrinsic audio characteristics** — those that describe the sound and feel of the track, not its popularity or context.
-- I excluded features like:
-  - `popularity`: reflects user behavior, not audio similarity,
-  - `duration_s`: varies heavily, with some tracks resembling **podcast-length content**, which could distort similarity scoring.
-- Based on correlation analysis and musical intuition, I selected the following features:
-  - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score` (*see below*), and `vocals_strength` (*see below*)
-- These cover the essential dimensions of musical experience:
-  - **rhythm** (`tempo`, `danceability`),
-  - **intensity and production** (`energy`, `loudness`, `acousticness`),
-  - **emotional tone** (`valence`, `mood_score`),
-  - **vocal character** (`vocals_strength`)
-- This combination of features forms a **compact yet expressive vector representation** of each track, suited for similarity search.
+- We focus on **intrinsic audio characteristics** that describe the sound and feel of the track.
+- Excluded: `popularity` (behavioral), `duration_s` (very high variance, long-form content).
+- Selected features: `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`.
+- They cover **rhythm**, **intensity/production**, **emotional tone**, and **vocal character**.
 """)
 
-# Wykresy po normalizacji
+# --- Rozkłady po normalizacji ---
 st.subheader("Normalized Feature Distributions (used for similarity search)")
 fig_norm, axs_norm = plt.subplots(3, 3, figsize=(18, 16))
 axs_norm = axs_norm.flatten()
@@ -271,44 +309,40 @@ st.pyplot(fig_norm)
 
 st.markdown("### Notes on Normalized Features and Outlier Handling")
 st.markdown(
-    "- All features used for similarity search are **scaled to the [0, 1] range** using **Min-Max normalization**.\n"
-    "- This ensures that each feature contributes equally to the distance calculation.\n"
-    "- **Outliers in `instrumentalness` and `speechiness`** are handled by:\n"
-    "  - Clipping values above the 95th percentile to a fixed cap.\n"
-    "  - This prevents rare extreme values from skewing similarity scores.\n"
-    "- The final feature set includes engineered metrics like:\n"
-    "  - `mood_score = valence * energy`\n"
-    "  - `vocals_strength = 1 - instrumentalness - speechiness`\n"
-    "- This preprocessing step improves the **accuracy and interpretability** of recommendations."
+    "- All features are **scaled to [0, 1]** via **Min-Max**.\n"
+    "- Outliers in `instrumentalness` and `speechiness` are clipped at 95th percentile.\n"
+    "- Engineered metrics: `mood_score = valence * energy`, `vocals_strength = 1 - instrumentalness - speechiness`.\n"
+    "- Similarity uses **hybrid metric** with **Adaptive Feature Weighting**."
 )
 
-# Opis działania (ZAKTUALIZOWANY DO METRYKI HYBRYDOWEJ)
+# --- OPIS METRYKI: poprawne wzory (st.latex) ---
 st.markdown("### How Similar Tracks Are Selected")
-st.markdown(f"""
-- I analyze **8 normalized audio features** that capture musical style and mood:
-  - `danceability`, `energy`, `valence`, `loudness`, `acousticness`, `tempo`, `mood_score`, `vocals_strength`
-- A selected track is represented as a **feature vector** in this multi-dimensional space.
-- For the selected track, I compute its similarity to **all other tracks** using a **hybrid metric**:
 
-  \\[
-  \\text{{similarity}} = \\alpha\\cdot\\text{{cosine}} + (1-\\alpha)\\cdot(1 - \\text{{normalized Euclidean}})
-  \\]
+st.markdown(
+    "- We analyze **8 normalized audio features** capturing musical style and mood.\n"
+    "- For the selected track, we compute its similarity to all others using a **hybrid metric** with adaptive feature weights."
+)
 
-  where:
-  - \\(\\text{{cosine}}(a,b) = \\frac{{a\\cdot b}}{{\\lVert a\\rVert\\,\\lVert b\\rVert}}\\)
-  - \\(\\text{{normalized Euclidean}}(a,b) = \\frac{{\\lVert a-b\\rVert}}{{\\sqrt{{n}}}}\\) (features are in \\([0,1]\\), so max distance is \\(\\sqrt{{n}}\\))
-  - **α = {ALPHA:.2f}** (higher weight on cosine to emphasize directional similarity)
+st.latex(r"\text{similarity} \;=\; \alpha\cdot \text{cosine}_w \;+\; (1-\alpha)\cdot \big(1 - \text{normalized Euclidean}_w\big)")
 
-- Tracks are ranked by **similarity** (higher is better). Identical items are excluded.
-- Optionally, within the candidate pool, results can be **re-sorted by popularity**.
-- Final result: **Top 5 most similar tracks**.
-""")
+st.markdown("**Weighted cosine** and **weighted normalized Euclidean**:")
+st.latex(r"\text{cosine}_w(a,b) \;=\; \frac{\sum_i w_i\, a_i b_i}{\sqrt{\sum_i w_i\, a_i^2}\;\sqrt{\sum_i w_i\, b_i^2}}")
+st.latex(r"\text{normalized Euclidean}_w(a,b) \;=\; \frac{\sqrt{\sum_i w_i\, (a_i-b_i)^2}}{\sqrt{\sum_i w_i}}")
 
-# --- ELBOW PLOT: dla metryki hybrydowej (na próbie) ---
-st.subheader("Elbow Plot for Nearest Neighbors (Hybrid Dissimilarity)")
+st.markdown("**Adaptive Feature Weighting** (większa waga dla cech wyjątkowych w utworze bazowym):")
+st.latex(r"z_i \;=\; \frac{|x_i - \mu_i|}{\sigma_i + \varepsilon}")
+st.latex(r"e_i \;=\; \min\!\left(\frac{z_i}{Z_{\text{cap}}},\,1\right)")
+st.latex(r"w_i' \;=\; 1 + \beta \, e_i \qquad\quad \tilde{w}_i \;=\; \frac{w_i'}{\frac{1}{n}\sum_{j=1}^n w_j'}")
+st.markdown(
+    f"Default params: $\\alpha={ALPHA:.2f}$, $\\beta={ADAPTIVE_BETA:.2f}$, $Z_{{\\text{{cap}}}}={ADAPTIVE_ZCAP:.1f}$. "
+    "Weights are renormalized to have mean 1 (so distances remain in [0,1])."
+)
+
+# --- ELBOW PLOT (dla metryki hybrydowej + adaptacji) ---
+st.subheader("Elbow Plot for Nearest Neighbors (Hybrid + Adaptive)")
 
 @st.cache_data
-def compute_elbow_hybrid(df_norm, features, alpha=ALPHA, sample_size=1000, k_max=15, seed=RANDOM_SEED):
+def compute_elbow_hybrid(df_norm, features, alpha=ALPHA, sample_size=800, k_max=15, seed=42):
     rng = np.random.default_rng(seed)
     X = df_norm[features].values.astype(float)
     n = X.shape[0]
@@ -319,17 +353,16 @@ def compute_elbow_hybrid(df_norm, features, alpha=ALPHA, sample_size=1000, k_max
     sums = np.zeros(len(k_range), dtype=float)
 
     for idx in idxs:
-        sims = _combined_similarity(X[idx], X, alpha)
-        # Dissimilarity = 1 - similarity; wyklucz sam siebie
+        q = X[idx]
+        w = compute_adaptive_weights(X, q, beta=ADAPTIVE_BETA, z_cap=ADAPTIVE_ZCAP)
+        sims = _combined_similarity(q, X, alpha, weights=w)
         dis = 1.0 - sims
         dis[idx] = np.inf
-        dis_sorted = np.sort(dis)  # rosnąco: najbliżsi pierwsi
-        # Dodaj dystanse k-tego najbliższego sąsiada
+        dis_sorted = np.sort(dis)
         for j, k in enumerate(k_range):
-            if k - 1 < len(dis_sorted):
-                sums[j] += dis_sorted[k - 1]
-            else:
-                sums[j] += dis_sorted[-1]
+            kth = dis_sorted[k - 1] if (k - 1) < len(dis_sorted) else dis_sorted[-1]
+            sums[j] += kth
+
     means = (sums / m).tolist()
     return k_range, means
 
@@ -338,28 +371,24 @@ fig_elbow, ax_elbow = plt.subplots()
 ax_elbow.plot(k_values, avg_diss, marker="o")
 ax_elbow.set_xlabel("k")
 ax_elbow.set_ylabel("Avg dissimilarity (1 - similarity) to k-th neighbor")
-ax_elbow.set_title("Elbow Plot (Hybrid Metric)")
+ax_elbow.set_title("Elbow Plot (Hybrid + Adaptive)")
 st.pyplot(fig_elbow)
 
 st.markdown("""
-### Elbow Plot Analysis for Optimal `k`
-
-The plot above illustrates how the **average hybrid dissimilarity** (1 − similarity) to the *k*-th nearest neighbor changes with `k`.  
-As with classic KNN elbow logic, the curve typically slows down around a small `k`. In this dataset, **k ≈ 5** remains a sensible default: it yields compact, relevant sets without drifting too far into less similar neighbors.
+**Elbow analysis**: as with classic KNN, a small k around **5** is a sensible default — compact results without drifting into weak neighbors.
 """)
 
-# Interfejs wyszukiwania podobnych utworów
+# --- INTERFEJS WYSZUKIWANIA ---
 st.subheader("Find Similar Tracks")
 selected_combo = st.selectbox("Choose a track:", df['title_artist'].unique())
 selected_index = df[df['title_artist'] == selected_combo].index[0]
-
 use_popularity = st.checkbox("Sort by popularity within results", value=True)
 
 if st.button("🔍 Find Similar"):
     results_df = find_similar_tracks(
         selected_index, df, df_norm, features_for_similarity, k=5, sort_by_popularity=use_popularity, alpha=ALPHA
     )
-    st.write(f"Top 5 tracks similar to **{selected_combo}** (hybrid metric, α={ALPHA:.2f}):")
+    st.write(f"Top 5 tracks similar to **{selected_combo}** (hybrid metric + adaptive weights, α={ALPHA:.2f}):")
     st.dataframe(results_df[['track_name', 'artists', 'similarity', 'popularity']].reset_index(drop=True), hide_index=True)
 
     # AI Evaluation
@@ -367,43 +396,22 @@ if st.button("🔍 Find Similar"):
         selected_combo, results_df[['track_name', 'artists', 'similarity']], alpha=ALPHA
     )
     st.markdown("### AI Evaluation of Recommendations")
-    st.markdown("""
-AI analyzes the musical similarity of the recommended tracks with each search. Here's the generated feedback:
-""")
+    st.markdown("AI analyzes the musical similarity of the recommended tracks with each search. Here's the generated feedback:")
     st.write(ai_feedback)
 
-# Podsumowanie i potencjalne ulepszenia
+# --- PODSUMOWANIE ---
 st.markdown("""
 ### Thought Process & Ideas Worth Exploring
 
-- **Dynamic Feature Weighting**  
-  It could be beneficial to emphasize features that are particularly distinctive for a given track.  
-  For example, if a song has an exceptionally high `danceability` while other features are closer to the mean, that feature could be given more weight — ensuring that highly danceable songs return recommendations with similar characteristics.
+- **Adaptive Feature Weighting (implemented)**  
+  Features that are unusually low/high for the base track carry more weight in similarity.
 
-- **Two-Stage Filtering Approach**  
-  Use the hybrid similarity to select a candidate pool (e.g. top 20), then apply additional filtering: e.g. same artist, same album, or shared unusual feature values. This combines numerical proximity with semantic context.
+- **Two-Stage Filtering**  
+  Use the hybrid-adaptive similarity to pick a candidate pool, then optionally apply semantic filters (same artist/album, unusual traits).
 
 - **Popularity-Aware Re-Ranking**  
-  With higher `k` values, broader recommendation sets may include more marginal tracks. Lightly favoring more popular tracks within this pool may increase user satisfaction.  
-  Currently, `popularity` is only used to exclude value 0 and for optional re-sorting.
+  Within the candidate pool, optional re-ranking by popularity may improve satisfaction.
 
-- **Avoid Using Popularity as a Similarity Feature**  
-  Adding `popularity` directly to the similarity vector might distort results. Two tracks with the same number of streams (e.g., disco and metal) are not necessarily musically alike. Popularity should be considered secondary, not part of the audio feature space.
-
-- **Artist and Album Awareness**  
-  In real-world use, users often explore more songs from the same artist or album. Enhancing the algorithm to optionally favor such continuity — for at least one suggestion — could feel more intuitive.
-
-- **Segmenting Long-Form Content**  
-  Tracks significantly longer than typical songs are often podcasts, interviews or DJ sets. These could be analyzed in a separate similarity space to avoid mismatches between spoken word and music.
-
-- **Hybrid Similarity (Implemented)**  
-  The app now uses a hybrid of **cosine** and **normalized Euclidean** similarities with **α = """ + f"{ALPHA:.2f}" + """** by default.  
-  Depending on your dataset and goals, you can tune α to emphasize direction (cosine) vs. absolute proximity (Euclidean).
-            
-- **Clustering** 
-  It is possible to cluster tracks based on their musical genre or sonic profile. Once such clusters are created, the system could ensure that at least one of the recommended tracks comes from the same cluster as the base track. This may help avoid numerically close but musically distant suggestions.
-
-One of the biggest difficulties I encountered was evaluating the actual quality of recommendations. Judging whether one song is truly "similar" to another is highly subjective, especially across genres and moods.
-
-To reduce bias, the app leverages an objective AI-based evaluation: GPT-4.1 analyzes the musical similarity of track recommendations with each search.
+- **Clustering & Diversity**  
+  Cluster tracks by sonic profile to ensure at least one same-cluster suggestion and avoid numerically close but musically distant picks.
 """)
