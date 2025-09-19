@@ -10,7 +10,7 @@ api_key = st.secrets["API_KEY"]
 # ===============================
 # USTAWIENIA METRYKI I ADAPTACJI
 # ===============================
-ALPHA = 0.60         # waga części cosine
+ALPHA = 0.8        # waga części cosine
 EPS = 1e-12
 
 # Robust Z-score -> [0,1]
